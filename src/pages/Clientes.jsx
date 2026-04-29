@@ -3,7 +3,7 @@ import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Ban, CheckCircle2, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Plus, Edit2, Trash2, Ban, CheckCircle2, ChevronLeft, ChevronRight, History, ShoppingCart } from 'lucide-react';
 
 export function Clientes() {
   const { data, addCliente, updateCliente, deleteCliente, toggleStatusCliente } = useContext(GlobalContext);
@@ -333,54 +333,98 @@ export function Clientes() {
       <Drawer 
         isOpen={isDrawerOpen} 
         onClose={() => setIsDrawerOpen(false)}
-        title="Histórico de Compras"
+        title="Ficha do Cliente"
       >
-        {selectedClienteHistory && (
-          <div className="h-full flex flex-col relative">
-            <div className="mb-6 pb-6 border-b border-gray-100">
-              <h3 className="font-semibold text-lg text-gray-800">{selectedClienteHistory.nome}</h3>
-              <p className="text-sm text-gray-500 mt-1">{selectedClienteHistory.email || selectedClienteHistory.telefone}</p>
-              {selectedClienteHistory.endereco && (
-                <p className="text-xs text-gray-400 mt-2 italic">{selectedClienteHistory.endereco}</p>
-              )}
-            </div>
-            
-            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative">
-              {selectedClienteHistory.historicoCompras.length > 0 ? (
-                <div className="relative border-l-2 border-gray-100 ml-3 pl-6 space-y-8 pb-10">
-                  {selectedClienteHistory.historicoCompras.map((compra, idx) => (
-                    <div key={compra.id} className="relative">
-                      {/* Ponto da Timeline */}
-                      <div className="absolute -left-[31px] bg-white border-2 border-blue-500 w-4 h-4 rounded-full mt-1"></div>
-                      
-                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="text-xs font-semibold text-gray-500 bg-white px-2 py-1 rounded shadow-sm">
-                            {new Date(compra.data).toLocaleDateString('pt-BR')}
-                          </span>
-                          <span className="font-bold text-gray-800">
-                            {compra.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-2 flex items-start gap-2">
-                          <History size={16} className="mt-0.5 text-gray-400" />
-                          {compra.descricao}
-                        </p>
-                      </div>
+        {selectedClienteHistory && (() => {
+          const clientSales = data.vendas
+            .filter(v => v.clienteId === selectedClienteHistory.id)
+            .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+          
+          const totalGasto = clientSales.reduce((acc, v) => acc + (v.valorTotal || 0), 0);
+
+          return (
+            <div className="h-full flex flex-col">
+              {/* Cabeçalho com Resumo */}
+              <div className="mb-6 pb-6 border-b border-gray-100">
+                <h3 className="font-bold text-xl text-gray-800">{selectedClienteHistory.nome}</h3>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded-md">{selectedClienteHistory.cnpj || 'Sem CPF/CNPJ'}</span>
+                  <span className={`text-xs font-medium px-2 py-1 rounded-md ${selectedClienteHistory.status === 'Ativo' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'}`}>
+                    {selectedClienteHistory.status}
+                  </span>
+                </div>
+                
+                {/* Stats Rápidas */}
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total de Pedidos</p>
+                    <p className="text-lg font-black text-gray-800">{clientSales.length}</p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Gasto</p>
+                    <p className="text-lg font-black text-blue-600">{totalGasto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                  </div>
+                </div>
+
+                {selectedClienteHistory.endereco && (
+                  <div className="mt-4 p-3 bg-blue-50/30 rounded-xl border border-blue-50 flex items-start gap-2">
+                    <div className="text-blue-500 mt-0.5">
+                      <History size={14} />
                     </div>
-                  ))}
-                  {/* Fim da timeline fadeout */}
-                  <div className="absolute bottom-0 left-[-2px] w-0.5 h-20 bg-gradient-to-b from-gray-100 to-transparent"></div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                  <History size={40} className="mb-3 opacity-20" />
-                  <p>Nenhuma compra registrada.</p>
-                </div>
-              )}
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      <span className="font-bold">Endereço:</span> {selectedClienteHistory.endereco}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar">
+                <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <ShoppingCart size={16} className="text-gray-400" />
+                  Linha do Tempo de Compras
+                </h4>
+                
+                {clientSales.length > 0 ? (
+                  <div className="relative border-l-2 border-gray-100 ml-3 pl-6 space-y-6 pb-10">
+                    {clientSales.map((venda) => (
+                      <div key={venda.id} className="relative">
+                        <div className="absolute -left-[31px] bg-white border-2 border-blue-500 w-4 h-4 rounded-full mt-1 shadow-sm"></div>
+                        
+                        <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <span className="text-[10px] font-bold text-blue-600 uppercase">Venda #{venda.id}</span>
+                              <p className="text-xs text-gray-500 font-medium">
+                                {new Date(venda.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                              </p>
+                            </div>
+                            <span className="font-bold text-gray-900 text-sm">
+                              {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 pt-2 border-t border-gray-50">
+                            {venda.itens.map((item, idx) => (
+                              <div key={idx} className="flex justify-between text-[11px]">
+                                <span className="text-gray-600"><span className="font-bold text-gray-400">{item.quantidade}x</span> {item.nome}</span>
+                                <span className="text-gray-400">{item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <History size={40} className="mb-3 opacity-20" />
+                    <p className="text-sm">Nenhuma compra registrada.</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </Drawer>
 
       <ConfirmDialog
