@@ -18,7 +18,9 @@ export function Dashboard() {
     lucroLiquido,
     last6MonthsData,
     topProducts,
-    ultimasVendas,
+    melhoresClientes,
+    maisTempoSemPedir,
+    orcamentosPendentes,
     showAlert
   } = useMemo(() => {
     const now = new Date();
@@ -107,7 +109,6 @@ export function Dashboard() {
       despesasMes: despesas,
       lucroLiquido: lucro,
       last6MonthsData: ultimos6Meses,
-      topProducts: top5,
       topProducts: top5,
       showAlert: show,
       // 6. Coluna 1: Melhores Clientes (Total acumulado)
