@@ -252,6 +252,13 @@ export function GlobalProvider({ children }) {
     }));
   };
 
+  const updateVenda = (id, vendaData) => {
+    setData(prev => ({
+      ...prev,
+      vendas: prev.vendas.map(v => v.id === id ? { ...v, ...vendaData } : v)
+    }));
+  };
+
   const deleteVenda = (id) => {
     setData(prev => ({
       ...prev,
@@ -310,6 +317,7 @@ export function GlobalProvider({ children }) {
       updateOrcamento,
       deleteOrcamento,
       addVenda,
+      updateVenda,
       deleteVenda,
       toggleComissaoPaga,
       addDespesa,

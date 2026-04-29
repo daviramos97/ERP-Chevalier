@@ -2,12 +2,13 @@ import { useContext, useState, useRef, useEffect } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Download, Trash2, ShoppingCart, Search } from 'lucide-react';
+import { Plus, Download, Trash2, ShoppingCart, Search, Edit2 } from 'lucide-react';
 
 export function Vendas() {
-  const { data, addVenda, deleteVenda } = useContext(GlobalContext);
+  const { data, addVenda, updateVenda, deleteVenda } = useContext(GlobalContext);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingVenda, setEditingVenda] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importSearchTerm, setImportSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
@@ -15,6 +16,7 @@ export function Vendas() {
   // Form State
   const [orcamentoOrigemId, setOrcamentoOrigemId] = useState('');
   const [clienteId, setClienteId] = useState('');
+  const [vendaDataHora, setVendaDataHora] = useState(new Date().toISOString().slice(0, 16));
   const [comissaoPercentual, setComissaoPercentual] = useState(5);
   
   // Dynamic Fast-Entry State
@@ -31,11 +33,22 @@ export function Vendas() {
   const valorTotalVenda = itens.reduce((acc, item) => acc + item.subtotal, 0);
   const valorComissao = valorTotalVenda * (comissaoPercentual / 100);
 
-  const openModal = () => {
-    setOrcamentoOrigemId('');
-    setClienteId('');
-    setComissaoPercentual(5);
-    setItens([]);
+  const openModal = (venda = null) => {
+    if (venda) {
+      setEditingVenda(venda);
+      setOrcamentoOrigemId(venda.orcamentoOrigemId?.toString() || '');
+      setClienteId(venda.clienteId.toString());
+      setComissaoPercentual(venda.comissaoPercentual);
+      setVendaDataHora(new Date(venda.dataHora).toISOString().slice(0, 16));
+      setItens([...venda.itens]);
+    } else {
+      setEditingVenda(null);
+      setOrcamentoOrigemId('');
+      setClienteId('');
+      setComissaoPercentual(5);
+      setVendaDataHora(new Date().toISOString().slice(0, 16));
+      setItens([]);
+    }
     setProdutoCodigo('');
     setQuantidade('');
     setPrecoUnitario('');
@@ -66,6 +79,19 @@ export function Vendas() {
       setItens([]);
       return;
     }
+
+    // Verifica se este orçamento já está vinculado a alguma venda
+    const vendaExistente = data.vendas.find(v => v.orcamentoOrigemId === orcamento.id);
+    if (vendaExistente && (!editingVenda || editingVenda.id !== vendaExistente.id)) {
+      setConfirmDialog({ 
+        isOpen: true, 
+        title: 'Orçamento já Utilizado', 
+        message: `Este orçamento (#${orcamento.id}) já foi convertido na Venda #${vendaExistente.id} e não pode ser reutilizado.`, 
+        isAlert: true 
+      });
+      return;
+    }
+
     setOrcamentoOrigemId(orcamento.id.toString());
     setClienteId(orcamento.clienteId.toString());
     setItens([...orcamento.itens]);
@@ -167,15 +193,21 @@ export function Vendas() {
   };
 
   const handleConfirmVenda = () => {
-    addVenda({
+    const payload = {
       clienteId: parseInt(clienteId),
       orcamentoOrigemId: orcamentoOrigemId ? parseInt(orcamentoOrigemId) : null,
-      dataHora: new Date().toISOString(),
+      dataHora: new Date(vendaDataHora).toISOString(),
       itens,
       valorTotal: valorTotalVenda,
       comissaoPercentual: parseFloat(comissaoPercentual) || 0,
       valorComissao: valorComissao
-    });
+    };
+
+    if (editingVenda) {
+      updateVenda(editingVenda.id, payload);
+    } else {
+      addVenda(payload);
+    }
     setIsModalOpen(false);
   };
 
@@ -200,7 +232,7 @@ export function Vendas() {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Vendas</h1>
         <button 
-          onClick={openModal}
+          onClick={() => openModal()}
           className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-green-600/20"
         >
           <ShoppingCart size={20} />
@@ -241,13 +273,22 @@ export function Vendas() {
                     {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </td>
                   <td className="py-3 px-4 text-center">
-                    <button 
-                      onClick={() => handleDeleteVenda(venda.id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Excluir Venda"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => openModal(venda)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Editar Venda"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteVenda(venda.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir Venda"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -265,7 +306,7 @@ export function Vendas() {
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        title="Registrar Venda"
+        title={editingVenda ? "Editar Venda" : "Registrar Venda"}
         maxWidth="max-w-4xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
@@ -301,7 +342,18 @@ export function Vendas() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data e Hora *</label>
+              <input 
+                type="datetime-local"
+                required
+                autoComplete="off"
+                value={vendaDataHora}
+                onChange={(e) => setVendaDataHora(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all bg-white"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
               <select 
@@ -498,7 +550,13 @@ export function Vendas() {
                   .filter(o => {
                     const cli = data.clientes.find(c => c.id === o.clienteId);
                     const term = importSearchTerm.toLowerCase();
-                    return o.id.toString().includes(term) || (cli && cli.nome.toLowerCase().includes(term));
+                    const matchSearch = o.id.toString().includes(term) || (cli && cli.nome.toLowerCase().includes(term));
+                    
+                    // Só mostra orçamentos que NÃO estão vinculados a vendas (ou que estão vinculados à venda atual que estamos editando)
+                    const vinculada = data.vendas.find(v => v.orcamentoOrigemId === o.id);
+                    const isDisponivel = !vinculada || (editingVenda && vinculada.id === editingVenda.id);
+                    
+                    return matchSearch && isDisponivel;
                   })
                   .map(o => {
                     const cli = data.clientes.find(c => c.id === o.clienteId);
