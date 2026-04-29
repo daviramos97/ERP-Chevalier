@@ -201,12 +201,13 @@ export function Produtos() {
         onClose={() => setIsModalOpen(false)} 
         title={editingProduto ? "Editar Produto" : "Novo Produto"}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Código (SKU/Ref) *</label>
             <input 
               type="text" 
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               value={formData.codigo}
               onChange={(e) => setFormData({...formData, codigo: e.target.value})}
@@ -218,6 +219,7 @@ export function Produtos() {
             <input 
               type="text" 
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               value={formData.nome}
               onChange={(e) => setFormData({...formData, nome: e.target.value})}
@@ -230,6 +232,7 @@ export function Produtos() {
               type="number" 
               step="0.01"
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               value={formData.preco}
               onChange={(e) => setFormData({...formData, preco: e.target.value})}

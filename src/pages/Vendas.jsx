@@ -268,7 +268,7 @@ export function Vendas() {
         title="Registrar Venda"
         maxWidth="max-w-4xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
           <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 w-full">
               <label className="block text-sm font-medium text-blue-800 mb-1 flex items-center gap-2">
@@ -309,6 +309,7 @@ export function Vendas() {
                 value={clienteId}
                 onChange={(e) => setClienteId(e.target.value)}
                 disabled={!!orcamentoOrigemId} // Bloqueia se importou do orçamento
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all bg-white disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">Selecione um cliente...</option>
@@ -325,6 +326,7 @@ export function Vendas() {
                 min="0"
                 value={comissaoPercentual}
                 onChange={(e) => setComissaoPercentual(e.target.value)}
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all"
               />
             </div>
@@ -341,6 +343,7 @@ export function Vendas() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Qtd</label>
                 <input 
                   type="number" min="1" ref={qtdRef} value={quantidade} onChange={(e) => setQuantidade(e.target.value)} onKeyDown={handleQtdKeyDown}
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-600 outline-none font-mono"
                 />
               </div>
@@ -348,6 +351,7 @@ export function Vendas() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Produto</label>
                 <input 
                   type="text" ref={codigoRef} value={produtoCodigo} onChange={handleCodigoChange} onKeyDown={handleCodigoKeyDown}
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-600 outline-none font-mono"
                 />
               </div>
@@ -355,6 +359,7 @@ export function Vendas() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Vlr. Unit</label>
                 <input 
                   type="text" ref={precoRef} value={precoUnitario} onChange={(e) => setPrecoUnitario(e.target.value)} onKeyDown={handlePrecoKeyDown}
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500/20 focus:border-green-600 outline-none font-mono"
                 />
               </div>

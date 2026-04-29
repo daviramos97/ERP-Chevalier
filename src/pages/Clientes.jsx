@@ -20,7 +20,7 @@ export function Clientes() {
   const [selectedClienteHistory, setSelectedClienteHistory] = useState(null);
   
   // Form State
-  const initialForm = { nome: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '', observacoes: '' };
+  const initialForm = { nome: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '', endereco: '', observacoes: '' };
   const [formData, setFormData] = useState(initialForm);
   
   // Paginação
@@ -28,6 +28,28 @@ export function Clientes() {
   const itemsPerPage = 5;
   const totalPages = Math.ceil(data.clientes.length / itemsPerPage);
   const paginatedClientes = data.clientes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  
+  // Mascaramento
+  const maskCnpjCpf = (value) => {
+    const v = value.replace(/\D/g, "");
+    if (v.length <= 11) {
+      return v
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    } else {
+      return v
+        .replace(/^(\d{2})(\d)/, "$1.$2")
+        .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1/$2")
+        .replace(/(\d{4})(\d)/, "$1-$2")
+        .slice(0, 18);
+    }
+  };
+
+  const maskIE = (value) => {
+    return value.replace(/\D/g, "").slice(0, 15); // IE varia por estado, mantemos apenas números
+  };
 
   // Handlers
   const openModal = (cliente = null) => {
@@ -40,6 +62,7 @@ export function Clientes() {
         ie: cliente.ie || '',
         telefone: cliente.telefone || '',
         email: cliente.email || '',
+        endereco: cliente.endereco || '',
         observacoes: cliente.observacoes || ''
       });
     } else {
@@ -218,6 +241,7 @@ export function Clientes() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
               <input 
                 type="text" required
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})}
               />
@@ -226,6 +250,7 @@ export function Clientes() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
               <input 
                 type="text"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.razaoSocial} onChange={(e) => setFormData({...formData, razaoSocial: e.target.value})}
               />
@@ -234,22 +259,25 @@ export function Clientes() {
               <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ / CPF</label>
               <input 
                 type="text"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                value={formData.cnpj} onChange={(e) => setFormData({...formData, cnpj: e.target.value})}
+                value={formData.cnpj} onChange={(e) => setFormData({...formData, cnpj: maskCnpjCpf(e.target.value)})}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Inscrição Estadual</label>
               <input 
                 type="text"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                value={formData.ie} onChange={(e) => setFormData({...formData, ie: e.target.value})}
+                value={formData.ie} onChange={(e) => setFormData({...formData, ie: maskIE(e.target.value)})}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
               <input 
                 type="text"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})}
               />
@@ -258,14 +286,26 @@ export function Clientes() {
               <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
               <input 
                 type="email"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                placeholder="Ex: Avenida Jose manna junior, 400"
+                value={formData.endereco} onChange={(e) => setFormData({...formData, endereco: e.target.value})}
               />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
               <textarea 
                 rows="3"
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none"
                 value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
               ></textarea>
@@ -300,6 +340,9 @@ export function Clientes() {
             <div className="mb-6 pb-6 border-b border-gray-100">
               <h3 className="font-semibold text-lg text-gray-800">{selectedClienteHistory.nome}</h3>
               <p className="text-sm text-gray-500 mt-1">{selectedClienteHistory.email || selectedClienteHistory.telefone}</p>
+              {selectedClienteHistory.endereco && (
+                <p className="text-xs text-gray-400 mt-2 italic">{selectedClienteHistory.endereco}</p>
+              )}
             </div>
             
             <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative">

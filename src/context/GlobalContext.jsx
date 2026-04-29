@@ -1,4 +1,4 @@
-import { createContext, useState } from 'react';
+import { createContext, useState, useEffect } from 'react';
 
 export const GlobalContext = createContext();
 
@@ -7,11 +7,8 @@ export function GlobalProvider({ children }) {
     if (!items || items.length === 0) return 100;
     return Math.max(...items.map(i => i.id)) + 1;
   };
-    if (!items || items.length === 0) return 100;
-    return Math.max(...items.map(i => i.id)) + 1;
-  };
 
-  const [data, setData] = useState({
+  const defaultData = {
     produtos: [
       { id: 101, codigo: '1', nome: 'Cadeira Gamer', preco: 850.00 },
       { id: 102, codigo: '2', nome: 'Mesa de Escritório', preco: 1200.00 },
@@ -106,7 +103,71 @@ export function GlobalProvider({ children }) {
         data: '2026-04-15'
       }
     ]
-  });
+  };
+
+  const [data, setData] = useState(defaultData);
+  const [loading, setLoading] = useState(true);
+
+  // Carregar dados na inicialização
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const response = await fetch('/api/data');
+        if (response.ok) {
+          const cloudData = await response.json();
+          if (cloudData && Object.keys(cloudData).length > 0) {
+            setData(cloudData);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("API de dados não disponível, tentando localStorage...");
+      }
+
+      // Se falhar a API, tenta o localStorage (migração)
+      const savedData = localStorage.getItem('chevalier_data');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          setData(parsed);
+          // Tenta salvar no servidor para completar a migração
+          await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: savedData
+          });
+          // Limpa o localStorage após migrar para evitar confusão no futuro
+          // localStorage.removeItem('chevalier_data'); // Opcional, mantemos por segurança por enquanto
+        } catch (e) {
+          console.error("Erro ao migrar dados:", e);
+        }
+      }
+      setLoading(false);
+    };
+
+    loadData();
+  }, []);
+
+  // Salvar dados sempre que houver mudanças (exceto no carregamento inicial)
+  useEffect(() => {
+    if (!loading) {
+      const saveData = async () => {
+        try {
+          await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        } catch (e) {
+          console.error("Erro ao salvar dados no servidor:", e);
+        }
+      };
+      
+      const timeoutId = setTimeout(saveData, 500); // Debounce de 500ms
+      return () => clearTimeout(timeoutId);
+    }
+  }, [data, loading]);
 
   // Funções Auxiliares para Produtos
   const addProduto = (produto) => {
@@ -176,6 +237,13 @@ export function GlobalProvider({ children }) {
     }));
   };
 
+  const deleteOrcamento = (id) => {
+    setData(prev => ({
+      ...prev,
+      orcamentos: prev.orcamentos.filter(o => o.id !== id)
+    }));
+  };
+
   // Funções Auxiliares para Vendas
   const addVenda = (venda) => {
     setData(prev => ({
@@ -230,6 +298,7 @@ export function GlobalProvider({ children }) {
     <GlobalContext.Provider value={{ 
       data, 
       setData,
+      loading,
       addProduto,
       updateProduto,
       deleteProdutos,
@@ -239,6 +308,7 @@ export function GlobalProvider({ children }) {
       toggleStatusCliente,
       addOrcamento,
       updateOrcamento,
+      deleteOrcamento,
       addVenda,
       deleteVenda,
       toggleComissaoPaga,

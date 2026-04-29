@@ -157,12 +157,13 @@ export function Despesas() {
         onClose={() => setIsModalOpen(false)} 
         title={editingDespesa ? "Editar Despesa" : "Nova Despesa"}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Data *</label>
             <input 
               type="date" 
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
               value={formData.data}
               onChange={(e) => setFormData({...formData, data: e.target.value})}
@@ -173,6 +174,7 @@ export function Despesas() {
             <input 
               type="text" 
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all"
               value={formData.descricao}
               onChange={(e) => setFormData({...formData, descricao: e.target.value})}
@@ -186,6 +188,7 @@ export function Despesas() {
               step="0.01"
               min="0"
               required
+              autoComplete="off"
               className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-none transition-all font-mono"
               value={formData.valor}
               onChange={(e) => setFormData({...formData, valor: e.target.value})}

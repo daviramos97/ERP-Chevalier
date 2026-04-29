@@ -7,7 +7,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export function Orcamentos() {
-  const { data, addOrcamento, updateOrcamento } = useContext(GlobalContext);
+  const { data, addOrcamento, updateOrcamento, deleteOrcamento } = useContext(GlobalContext);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrcamento, setEditingOrcamento] = useState(null);
@@ -187,6 +187,20 @@ export function Orcamentos() {
     setIsModalOpen(false);
   };
 
+  const handleDeleteOrcamento = (id) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Excluir Orçamento',
+      message: 'Tem certeza que deseja excluir este orçamento? Esta ação não pode ser desfeita.',
+      isDestructive: true,
+      onConfirm: () => {
+        deleteOrcamento(id);
+        setConfirmDialog({ isOpen: false });
+        showToast('Orçamento excluído com sucesso!');
+      }
+    });
+  };
+
   const handleWhatsApp = (orcamento) => {
     const cliente = data.clientes.find(c => c.id === orcamento.clienteId);
     const dataFormatada = new Date(orcamento.data).toLocaleDateString('pt-BR');
@@ -332,10 +346,17 @@ export function Orcamentos() {
                       </button>
                       <button 
                         onClick={() => handleGeneratePDF(orc)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
                         title="Gerar PDF"
                       >
                         <FileText size={18} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteOrcamento(orc.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Excluir Orçamento"
+                      >
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </td>
@@ -386,6 +407,7 @@ export function Orcamentos() {
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
                 onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
               />
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -429,6 +451,7 @@ export function Orcamentos() {
                   onChange={(e) => setQuantidade(e.target.value)}
                   onKeyDown={handleQtdKeyDown}
                   placeholder="Ex: 1000"
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none font-mono"
                 />
               </div>
@@ -441,6 +464,7 @@ export function Orcamentos() {
                   onChange={handleCodigoChange}
                   onKeyDown={handleCodigoKeyDown}
                   placeholder="Ex: PROD-1"
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none font-mono"
                 />
               </div>
@@ -453,6 +477,7 @@ export function Orcamentos() {
                   onChange={(e) => setPrecoUnitario(e.target.value)}
                   onKeyDown={handlePrecoKeyDown}
                   placeholder="0.00"
+                  autoComplete="off"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none font-mono"
                 />
               </div>
