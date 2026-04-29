@@ -108,8 +108,37 @@ export function Dashboard() {
       lucroLiquido: lucro,
       last6MonthsData: ultimos6Meses,
       topProducts: top5,
-      ultimasVendas: ultimas,
-      showAlert: show
+      topProducts: top5,
+      showAlert: show,
+      // 6. Coluna 1: Melhores Clientes (Total acumulado)
+      melhoresClientes: data.clientes
+        .map(c => {
+          const totalComprado = data.vendas
+            .filter(v => v.clienteId === c.id)
+            .reduce((acc, v) => acc + (v.valorTotal || 0), 0);
+          return { ...c, totalComprado };
+        })
+        .sort((a, b) => b.totalComprado - a.totalComprado)
+        .slice(0, 5),
+
+      // 7. Coluna 2: Mais tempo sem pedir (Inativos)
+      maisTempoSemPedir: data.clientes
+        .map(c => {
+          const vendasCliente = data.vendas
+            .filter(v => v.clienteId === c.id)
+            .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+          const ultimaVenda = vendasCliente.length > 0 ? vendasCliente[0].dataHora : null;
+          return { ...c, ultimaVenda };
+        })
+        .filter(c => c.ultimaVenda !== null) // Apenas quem já comprou
+        .sort((a, b) => new Date(a.ultimaVenda) - new Date(b.ultimaVenda))
+        .slice(0, 5),
+
+      // 8. Coluna 3: Orçamentos Pendentes (Maiores Valores)
+      orcamentosPendentes: data.orcamentos
+        .filter(o => !data.vendas.some(v => v.orcamentoOrigemId === o.id))
+        .sort((a, b) => b.valorTotal - a.valorTotal)
+        .slice(0, 5)
     };
   }, [data]);
 
@@ -249,47 +278,88 @@ export function Dashboard() {
       </div>
 
       {/* 3. Base - Tabela Últimas Vendas */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-hidden">
-        <h3 className="text-lg font-bold text-gray-800 mb-6">Últimas 5 Vendas</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th className="pb-3 font-semibold text-gray-500 text-sm">Data</th>
-                <th className="pb-3 font-semibold text-gray-500 text-sm">ID</th>
-                <th className="pb-3 font-semibold text-gray-500 text-sm">Cliente</th>
-                <th className="pb-3 font-semibold text-gray-500 text-sm text-right">Valor Total</th>
-                <th className="pb-3 font-semibold text-gray-500 text-sm text-right">Comissão</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ultimasVendas.length > 0 ? (
-                ultimasVendas.map((venda) => {
-                  const cliente = data.clientes.find(c => c.id === venda.clienteId);
-                  return (
-                    <tr key={venda.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                      <td className="py-3 text-sm text-gray-600">
-                        {new Date(venda.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                      </td>
-                      <td className="py-3 font-medium text-gray-800">#{venda.id}</td>
-                      <td className="py-3 text-sm text-gray-600">{cliente?.nome || 'Cliente Desconhecido'}</td>
-                      <td className="py-3 text-sm font-medium text-gray-800 text-right">
-                        {formatCurrency(venda.valorTotal)}
-                      </td>
-                      <td className="py-3 text-sm font-semibold text-green-600 text-right">
-                        {formatCurrency(venda.valorComissao)}
-                      </td>
-                    </tr>
-                  )
-                })
-              ) : (
-                <tr>
-                  <td colSpan="5" className="py-8 text-center text-gray-400">Nenhuma venda registrada no sistema.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* 3. Base - Três Colunas Estratégicas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Coluna 1: Melhores Clientes */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+              <TrendingUp size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Melhores Clientes</h3>
+          </div>
+          <div className="space-y-4">
+            {melhoresClientes.map((c, i) => (
+              <div key={c.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-gray-400 w-4">{i + 1}º</span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-800 line-clamp-1">{c.nome}</span>
+                    <span className="text-xs text-gray-500">Total acumulado</span>
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-blue-600">{formatCurrency(c.totalComprado)}</span>
+              </div>
+            ))}
+            {melhoresClientes.length === 0 && <p className="text-center text-sm text-gray-400 py-4">Nenhum dado disponível</p>}
+          </div>
         </div>
+
+        {/* Coluna 2: Mais Tempo Sem Pedir */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+              <Activity size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Mais Tempo s/ Pedir</h3>
+          </div>
+          <div className="space-y-4">
+            {maisTempoSemPedir.map((c) => {
+              const diasInativo = Math.floor((new Date() - new Date(c.ultimaVenda)) / (1000 * 60 * 60 * 24));
+              return (
+                <div key={c.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-800 line-clamp-1">{c.nome}</span>
+                    <span className="text-xs text-gray-500">Último: {new Date(c.ultimaVenda).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${diasInativo > 60 ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                      {diasInativo} dias
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {maisTempoSemPedir.length === 0 && <p className="text-center text-sm text-gray-400 py-4">Nenhum dado disponível</p>}
+          </div>
+        </div>
+
+        {/* Coluna 3: Maiores Orçamentos Pendentes */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+              <ShoppingCart size={20} />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800">Maiores Orçamentos</h3>
+          </div>
+          <div className="space-y-4">
+            {orcamentosPendentes.map((o) => {
+              const cliente = data.clientes.find(c => c.id === o.clienteId);
+              return (
+                <div key={o.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl transition-colors border border-transparent hover:border-gray-100">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-800 line-clamp-1">#{o.id} - {cliente?.nome || 'N/A'}</span>
+                    <span className="text-xs text-gray-500">{new Date(o.data).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <span className="text-sm font-bold text-emerald-600">{formatCurrency(o.valorTotal)}</span>
+                </div>
+              );
+            })}
+            {orcamentosPendentes.length === 0 && <p className="text-center text-sm text-gray-400 py-4">Nenhum orçamento pendente</p>}
+          </div>
+        </div>
+
       </div>
 
     </div>
