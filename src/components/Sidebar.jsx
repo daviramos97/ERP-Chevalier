@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Package, Users, FileText, ShoppingCart, DollarSign, Wallet, Tag } from 'lucide-react';
+import { LayoutDashboard, Package, Users, FileText, ShoppingCart, DollarSign, Wallet, Tag, Radar } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Produtos', path: '/produtos', icon: Package },
   { name: 'Clientes', path: '/clientes', icon: Users },
   { name: 'Descontos', path: '/descontos', icon: Tag },
+  { name: 'Radar da Semana', path: '/radar', icon: Radar },
   { name: 'Orçamentos', path: '/orcamentos', icon: FileText },
   { name: 'Vendas', path: '/vendas', icon: ShoppingCart },
   { name: 'Comissão', path: '/comissao', icon: DollarSign },

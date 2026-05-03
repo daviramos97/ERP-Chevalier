@@ -10,6 +10,7 @@ import { Vendas } from './pages/Vendas';
 import { Comissao } from './pages/Comissao';
 import { Despesas } from './pages/Despesas';
 import { Descontos } from './pages/Descontos';
+import { RadarDaSemana } from './pages/RadarDaSemana';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
             <Route path="/comissao" element={<Comissao />} />
             <Route path="/despesas" element={<Despesas />} />
             <Route path="/descontos" element={<Descontos />} />
+            <Route path="/radar" element={<RadarDaSemana />} />
           </Routes>
         </Layout>
       </Router>

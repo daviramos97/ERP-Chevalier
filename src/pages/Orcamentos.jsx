@@ -1,4 +1,5 @@
 import { useContext, useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -8,6 +9,7 @@ import autoTable from 'jspdf-autotable';
 
 export function Orcamentos() {
   const { data, addOrcamento, updateOrcamento, deleteOrcamento, addCliente } = useContext(GlobalContext);
+  const location = useLocation();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrcamento, setEditingOrcamento] = useState(null);
@@ -69,6 +71,27 @@ export function Orcamentos() {
       setTimeout(() => qtdRef.current.focus(), 100);
     }
   }, [isModalOpen]);
+
+  // Pré-selecionar cliente vindo do Mapa de Domínio
+  useEffect(() => {
+    const clienteId = location.state?.clientePreSelecionado;
+    if (clienteId) {
+      const cliente = data.clientes.find(c => c.id === clienteId);
+      if (cliente) {
+        setEditingOrcamento(null);
+        setClienteId(cliente.id.toString());
+        setClienteSearch(cliente.nome);
+        setItens([]);
+        setProdutoCodigo('');
+        setQuantidade('');
+        setPrecoUnitario('');
+        setIsModalOpen(true);
+        // Limpa o state para não reabrir ao navegar de volta
+        window.history.replaceState({}, '');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const [currentIsDiscounted, setCurrentIsDiscounted] = useState(false);
 
@@ -261,7 +284,7 @@ export function Orcamentos() {
       doc.setTextColor(40, 40, 40);
       doc.text("ORÇAMENTO", 140, 22);
       doc.setFontSize(10);
-      doc.text(`Data: ${new Date(orcamento.data).toLocaleDateString('pt-BR')}`, 140, 30);
+      doc.text(`Data: ${orcamento.data ? orcamento.data.split('-').reverse().join('/') : '-'}`, 140, 30);
       doc.text(`ID: #${orcamento.id}`, 140, 36);
       
       doc.setDrawColor(200);
@@ -346,7 +369,7 @@ export function Orcamentos() {
                   <td className="p-4 text-gray-500 text-sm">#{orc.id}</td>
                   <td className="p-4 font-medium text-gray-800">{cli?.nome || 'N/A'}</td>
                   <td className="p-4 text-gray-600">
-                    {new Date(orc.data).toLocaleDateString('pt-BR')}
+                    {orc.data ? orc.data.split('-').reverse().join('/') : '-'}
                   </td>
                   <td className="p-4 font-semibold text-blue-600">
                     {orc.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
