@@ -1,48 +1,46 @@
 import { useContext, useState } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Trash2, Tag, Search } from 'lucide-react';
+import { Plus, Trash2, Tag, Search, User, ChevronRight, ArrowLeft } from 'lucide-react';
 
 export function Descontos() {
   const { data, addDesconto, deleteDesconto } = useContext(GlobalContext);
 
-  const [clienteSearch, setClienteSearch] = useState('');
-  const [clienteId, setClienteId] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedClienteId, setSelectedClienteId] = useState(null);
+  const [clientSearch, setClientSearch] = useState('');
+  
   const [produtoId, setProdutoId] = useState('');
   const [preco, setPreco] = useState('');
-  const [filterClienteId, setFilterClienteId] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
 
   const descontos = data.descontos || [];
+  const selectedCliente = data.clientes.find(c => c.id === selectedClienteId);
 
-  const filteredDescontos = filterClienteId
-    ? descontos.filter(d => d.clienteId === parseInt(filterClienteId))
-    : descontos;
+  // Filtra descontos do cliente selecionado
+  const clienteDescontos = selectedClienteId
+    ? descontos.filter(d => d.clienteId === selectedClienteId)
+    : [];
 
   const handleAdd = () => {
-    const cId = parseInt(clienteId);
     const pId = parseInt(produtoId);
-    const precoNum = parseFloat(preco.replace(',', '.'));
+    const precoNum = parseFloat(preco.toString().replace(',', '.'));
 
-    if (!cId || !pId || isNaN(precoNum) || precoNum <= 0) return;
+    if (!selectedClienteId || !pId || isNaN(precoNum) || precoNum <= 0) return;
 
-    // Impede duplicata (mesmo cliente + mesmo produto)
-    const jaExiste = descontos.some(d => d.clienteId === cId && d.produtoId === pId);
+    // Impede duplicata
+    const jaExiste = descontos.some(d => d.clienteId === selectedClienteId && d.produtoId === pId);
     if (jaExiste) {
       setConfirmDialog({
         isOpen: true,
         title: 'Atenção',
-        message: 'Já existe um preço especial cadastrado para este cliente e produto. Exclua o existente antes de adicionar um novo.',
+        message: 'Já existe um preço especial cadastrado para este produto neste cliente.',
         isAlert: true,
         onConfirm: () => setConfirmDialog({ isOpen: false })
       });
       return;
     }
 
-    addDesconto({ clienteId: cId, produtoId: pId, preco: precoNum });
-    setClienteId('');
-    setClienteSearch('');
+    addDesconto({ clienteId: selectedClienteId, produtoId: pId, preco: precoNum });
     setProdutoId('');
     setPreco('');
   };
@@ -61,186 +59,210 @@ export function Descontos() {
   };
 
   const filteredClientes = data.clientes.filter(c =>
-    c.nome.toLowerCase().includes(clienteSearch.toLowerCase())
-  );
+    c.nome.toLowerCase().includes(clientSearch.toLowerCase())
+  ).sort((a, b) => a.nome.localeCompare(b.nome));
 
-  // Produto já cadastrado para o cliente selecionado (para filtrar o select)
-  const produtosJaCadastrados = descontos
-    .filter(d => d.clienteId === parseInt(clienteId))
-    .map(d => d.produtoId);
+  const produtosJaCadastrados = clienteDescontos.map(d => d.produtoId);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[calc(100vh-4rem)]">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Descontos</h1>
-          <p className="text-sm text-gray-500 mt-1">Preços especiais por cliente. Aplicados automaticamente ao lançar uma venda.</p>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
+      
+      {/* Painel Esquerdo: Lista de Clientes */}
+      <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedClienteId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-6 border-b border-gray-100 bg-white">
+          <h1 className="text-xl font-bold text-gray-800 mb-4">Clientes</h1>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar cliente..."
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          </div>
         </div>
-      </div>
-
-      {/* Formulário de Adição */}
-      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 mb-8">
-        <h2 className="text-sm font-bold text-gray-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-          <Tag size={16} className="text-blue-500" /> Novo Preço Especial
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-          {/* Cliente */}
-          <div className="relative md:col-span-2">
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Cliente</label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Buscar cliente..."
-                value={clienteSearch}
-                onChange={(e) => { setClienteSearch(e.target.value); setClienteId(''); setIsDropdownOpen(true); }}
-                onFocus={() => setIsDropdownOpen(true)}
-                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
-              />
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            </div>
-            {isDropdownOpen && filteredClientes.length > 0 && (
-              <ul className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                {filteredClientes.map(c => (
-                  <li
-                    key={c.id}
-                    onMouseDown={() => { setClienteId(c.id.toString()); setClienteSearch(c.nome); setIsDropdownOpen(false); }}
-                    className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 flex justify-between items-center"
-                  >
-                    <span>{c.nome}</span>
-                    {c.cidade && <span className="text-xs text-gray-400">{c.cidade}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Produto */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Embalagem / Produto</label>
-            <select
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
-              value={produtoId}
-              onChange={(e) => setProdutoId(e.target.value)}
-            >
-              <option value="">Selecione...</option>
-              {data.produtos
-                .filter(p => !produtosJaCadastrados.includes(p.id))
-                .map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome} (padrão: {p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* Preço */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Preço Especial (R$)</label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0,00"
-                value={preco}
-                onChange={(e) => setPreco(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-mono text-sm"
-              />
+        
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredClientes.map(c => {
+            const hasDescontos = descontos.some(d => d.clienteId === c.id);
+            const count = descontos.filter(d => d.clienteId === c.id).length;
+            return (
               <button
-                onClick={handleAdd}
-                disabled={!clienteId || !produtoId || !preco}
-                className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all shadow-sm shadow-blue-600/20 whitespace-nowrap text-sm"
+                key={c.id}
+                onClick={() => setSelectedClienteId(c.id)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                  selectedClienteId === c.id 
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
+                    : 'hover:bg-white text-gray-700 hover:shadow-sm border border-transparent hover:border-gray-100'
+                }`}
               >
-                <Plus size={16} /> Adicionar
+                <div className="flex items-center gap-3 text-left">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${selectedClienteId === c.id ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+                    {c.nome.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{c.nome}</p>
+                    <p className={`text-[10px] uppercase tracking-wider ${selectedClienteId === c.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {c.cidade || 'Sem cidade'}
+                    </p>
+                  </div>
+                </div>
+                {hasDescontos && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${selectedClienteId === c.id ? 'bg-white text-blue-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {count}
+                  </span>
+                )}
+                <ChevronRight size={16} className={selectedClienteId === c.id ? 'text-blue-100' : 'text-gray-300'} />
               </button>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Filtro + Tabela */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-bold text-gray-600 uppercase tracking-widest">
-          {filteredDescontos.length} preço(s) cadastrado(s)
-        </h2>
-        <select
-          className="border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 focus:outline-none focus:border-blue-400 bg-white"
-          value={filterClienteId}
-          onChange={(e) => setFilterClienteId(e.target.value)}
-        >
-          <option value="">Todos os clientes</option>
-          {data.clientes.map(c => (
-            <option key={c.id} value={c.id}>{c.nome}</option>
-          ))}
-        </select>
-      </div>
+      {/* Painel Direito: Detalhes dos Descontos */}
+      <div className={`flex-1 flex flex-col bg-white ${!selectedClienteId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedCliente ? (
+          <>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setSelectedClienteId(null)}
+                  className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">{selectedCliente.nome}</h2>
+                  <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-widest">{selectedCliente.cidade} · {selectedCliente.bairro || 'Sem bairro'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full">
+                <Tag size={14} className="text-blue-600" />
+                <span className="text-xs font-bold text-blue-700">{clienteDescontos.length} preços especiais</span>
+              </div>
+            </div>
 
-      <div className="overflow-x-auto border border-gray-100 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="p-4 font-semibold text-gray-600 text-sm">Cliente</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Embalagem / Produto</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-right">Preço Padrão</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-right">Preço Especial</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-right">Diferença</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDescontos.length > 0 ? (
-              filteredDescontos.map(d => {
-                const cliente = data.clientes.find(c => c.id === d.clienteId);
-                const produto = data.produtos.find(p => p.id === d.produtoId);
-                const diff = d.preco - (produto?.preco || 0);
-                const diffPct = produto ? ((diff / produto.preco) * 100).toFixed(1) : 0;
-                return (
-                  <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="p-4">
-                      <div className="font-semibold text-gray-800">{cliente?.nome || 'N/A'}</div>
-                      {cliente?.cidade && <div className="text-xs text-gray-500">{cliente.cidade}</div>}
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium text-gray-700">{produto?.nome || 'Produto removido'}</div>
-                      {produto?.codigo && <div className="text-xs text-gray-400 font-mono">#{produto.codigo}</div>}
-                    </td>
-                    <td className="p-4 text-right text-gray-500 line-through text-sm">
-                      {produto ? produto.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}
-                    </td>
-                    <td className="p-4 text-right font-bold text-blue-600">
-                      {d.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </td>
-                    <td className="p-4 text-right">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${diff < 0 ? 'bg-red-50 text-red-600' : diff > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'}`}>
-                        {diff > 0 ? '+' : ''}{diffPct}%
-                      </span>
-                    </td>
-                    <td className="p-4 text-center">
+            <div className="p-6 flex-1 overflow-y-auto space-y-8">
+              {/* Formulário Compacto */}
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Adicionar novo preço especial</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                  <div className="lg:col-span-1">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1">Produto / Embalagem</label>
+                    <select
+                      className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
+                      value={produtoId}
+                      onChange={(e) => setProdutoId(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {data.produtos
+                        .filter(p => !produtosJaCadastrados.includes(p.id))
+                        .map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.nome} ({p.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1.5 ml-1">Preço Especial (R$)</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        value={preco}
+                        onChange={(e) => setPreco(e.target.value)}
+                        className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-mono text-sm"
+                      />
                       <button
-                        onClick={() => handleDelete(d.id)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remover"
+                        onClick={handleAdd}
+                        disabled={!produtoId || !preco}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-all shadow-sm shadow-blue-600/20 whitespace-nowrap text-sm"
                       >
-                        <Trash2 size={16} />
+                        <Plus size={18} /> Salvar
                       </button>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan="6" className="p-12 text-center">
-                  <Tag size={40} className="mx-auto text-gray-200 mb-3" />
-                  <p className="text-gray-400 text-sm">Nenhum preço especial cadastrado.</p>
-                  <p className="text-gray-300 text-xs mt-1">Use o formulário acima para adicionar.</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela de Descontos do Cliente */}
+              <div>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 ml-1">Tabela de Preços Negociados</h3>
+                <div className="overflow-x-auto border border-gray-100 rounded-xl bg-white shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="p-4 font-bold text-gray-600 text-[10px] uppercase">Produto</th>
+                        <th className="p-4 font-bold text-gray-600 text-[10px] uppercase text-right">Padrão</th>
+                        <th className="p-4 font-bold text-blue-600 text-[10px] uppercase text-right">Especial</th>
+                        <th className="p-4 font-bold text-gray-600 text-[10px] uppercase text-right">Variação</th>
+                        <th className="p-4 text-center w-20"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clienteDescontos.length > 0 ? (
+                        clienteDescontos.map(d => {
+                          const produto = data.produtos.find(p => p.id === d.produtoId);
+                          const diff = d.preco - (produto?.preco || 0);
+                          const diffPct = produto ? ((diff / produto.preco) * 100).toFixed(1) : 0;
+                          return (
+                            <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                              <td className="p-4">
+                                <div className="font-semibold text-gray-800 text-sm">{produto?.nome || 'N/A'}</div>
+                                {produto?.codigo && <div className="text-[10px] text-gray-400 font-mono">#{produto.codigo}</div>}
+                              </td>
+                              <td className="p-4 text-right text-gray-400 line-through text-xs">
+                                {produto ? produto.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '-'}
+                              </td>
+                              <td className="p-4 text-right font-bold text-blue-600 text-sm">
+                                {d.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </td>
+                              <td className="p-4 text-right">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${diff < 0 ? 'bg-red-50 text-red-600' : diff > 0 ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-500'}`}>
+                                  {diff > 0 ? '+' : ''}{diffPct}%
+                                </span>
+                              </td>
+                              <td className="p-4 text-center">
+                                <button
+                                  onClick={() => handleDelete(d.id)}
+                                  className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="p-12 text-center">
+                            <Tag size={32} className="mx-auto text-gray-200 mb-2" />
+                            <p className="text-gray-400 text-sm font-medium">Nenhum preço especial para este cliente.</p>
+                            <p className="text-gray-300 text-xs mt-1">Configure as exceções de preço usando o formulário acima.</p>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <User size={32} className="text-gray-300" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Selecione um cliente</h2>
+            <p className="text-gray-500 max-w-sm text-sm">
+              Escolha um cliente na lista ao lado para gerenciar seus preços diferenciados e descontos exclusivos.
+            </p>
+          </div>
+        )}
       </div>
 
       <ConfirmDialog
