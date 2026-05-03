@@ -2,13 +2,14 @@ import { useContext, useState, useRef, useEffect } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Download, Trash2, ShoppingCart, Search, Edit2 } from 'lucide-react';
+import { Plus, Download, Trash2, ShoppingCart, Search, Edit2, Eye } from 'lucide-react';
 
 export function Vendas() {
   const { data, addVenda, updateVenda, deleteVenda } = useContext(GlobalContext);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVenda, setEditingVenda] = useState(null);
+  const [viewingVenda, setViewingVenda] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importSearchTerm, setImportSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
@@ -103,7 +104,11 @@ export function Vendas() {
     setProdutoCodigo(code);
     const produto = data.produtos.find(p => p.codigo === code || p.id.toString() === code);
     if (produto) {
-      setPrecoUnitario(produto.preco.toString());
+      // Busca preço especial na aba Descontos (clienteId + produtoId)
+      const desconto = (data.descontos || []).find(
+        d => d.clienteId === parseInt(clienteId) && d.produtoId === produto.id
+      );
+      setPrecoUnitario(desconto ? desconto.preco.toString() : produto.preco.toString());
     } else {
       setPrecoUnitario('');
     }
@@ -274,6 +279,13 @@ export function Vendas() {
                   </td>
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setViewingVenda(venda)}
+                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Visualizar Venda"
+                      >
+                        <Eye size={18} />
+                      </button>
                       <button 
                         onClick={() => openModal(venda)}
                         className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -610,6 +622,101 @@ export function Vendas() {
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
+
+      {/* Modal Visualizar Venda (Read-only) */}
+      {viewingVenda && (() => {
+        const cli = data.clientes.find(c => c.id === viewingVenda.clienteId);
+        return (
+          <Modal
+            isOpen={!!viewingVenda}
+            onClose={() => setViewingVenda(null)}
+            title={`Venda #${viewingVenda.id}`}
+            maxWidth="max-w-2xl"
+          >
+            <div className="space-y-5">
+              {/* Cabeçalho */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Cliente</p>
+                  <p className="font-semibold text-gray-800">{cli?.nome || 'N/A'}</p>
+                  {cli?.telefone && <p className="text-xs text-gray-500 mt-0.5">{cli.telefone}</p>}
+                </div>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Data</p>
+                  <p className="font-semibold text-gray-800">
+                    {new Date(viewingVenda.dataHora).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}
+                  </p>
+                  {viewingVenda.orcamentoOrigemId && (
+                    <p className="text-xs text-blue-600 mt-0.5">Originado do Orçamento #{viewingVenda.orcamentoOrigemId}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Itens */}
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Itens da Venda</p>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-50 text-gray-500">
+                      <th className="px-4 py-2 text-left font-semibold">Produto</th>
+                      <th className="px-4 py-2 text-center font-semibold">Qtd</th>
+                      <th className="px-4 py-2 text-right font-semibold">Unit.</th>
+                      <th className="px-4 py-2 text-right font-semibold">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingVenda.itens.map((item, idx) => (
+                      <tr key={idx} className="border-b border-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-800">{item.nome}</td>
+                        <td className="px-4 py-3 text-center text-gray-600">{item.quantidade}</td>
+                        <td className="px-4 py-3 text-right text-gray-600">
+                          {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
+                          {item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totais */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 text-right">
+                  <p className="text-xs font-bold text-orange-400 uppercase tracking-wider">Comissão ({viewingVenda.comissaoPercentual}%)</p>
+                  <p className="text-xl font-black text-orange-600 mt-1">
+                    {viewingVenda.valorComissao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4 border border-green-100 text-right">
+                  <p className="text-xs font-bold text-green-400 uppercase tracking-wider">Total da Venda</p>
+                  <p className="text-xl font-black text-green-700 mt-1">
+                    {viewingVenda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-1">
+                <button
+                  onClick={() => { setViewingVenda(null); openModal(viewingVenda); }}
+                  className="flex items-center gap-2 px-4 py-2.5 text-blue-600 hover:bg-blue-50 rounded-xl font-medium transition-colors border border-blue-100"
+                >
+                  <Edit2 size={16} /> Editar
+                </button>
+                <button
+                  onClick={() => setViewingVenda(null)}
+                  className="px-5 py-2.5 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-medium transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

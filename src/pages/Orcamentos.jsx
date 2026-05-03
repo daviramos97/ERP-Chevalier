@@ -2,12 +2,12 @@ import { useContext, useState, useRef, useEffect } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, MessageCircle, FileText, Trash2, Edit2, Search } from 'lucide-react';
+import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 export function Orcamentos() {
-  const { data, addOrcamento, updateOrcamento, deleteOrcamento } = useContext(GlobalContext);
+  const { data, addOrcamento, updateOrcamento, deleteOrcamento, addCliente } = useContext(GlobalContext);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOrcamento, setEditingOrcamento] = useState(null);
@@ -28,6 +28,11 @@ export function Orcamentos() {
   const codigoRef = useRef(null);
   const qtdRef = useRef(null);
   const precoRef = useRef(null);
+
+  // Quick Client State
+  const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
+  const [quickClientForm, setQuickClientForm] = useState({ nome: '', telefone: '', cidade: '' });
+  const CIDADES_ORC = ['Niterói', 'São Gonçalo', 'Itaboraí', 'Maricá'];
 
   // Toast State
   const [toastMsg, setToastMsg] = useState('');
@@ -65,14 +70,27 @@ export function Orcamentos() {
     }
   }, [isModalOpen]);
 
+  const [currentIsDiscounted, setCurrentIsDiscounted] = useState(false);
+
   const handleCodigoChange = (e) => {
     const code = e.target.value;
     setProdutoCodigo(code);
     const produto = data.produtos.find(p => p.codigo === code || p.id.toString() === code);
     if (produto) {
-      setPrecoUnitario(produto.preco.toString());
+      // Busca preço especial na aba Descontos (clienteId + produtoId)
+      const desconto = (data.descontos || []).find(
+        d => d.clienteId === parseInt(clienteId) && d.produtoId === produto.id
+      );
+      if (desconto) {
+        setPrecoUnitario(desconto.preco.toString());
+        setCurrentIsDiscounted(true);
+      } else {
+        setPrecoUnitario(produto.preco.toString());
+        setCurrentIsDiscounted(false);
+      }
     } else {
       setPrecoUnitario('');
+      setCurrentIsDiscounted(false);
     }
   };
 
@@ -93,12 +111,15 @@ export function Orcamentos() {
     }
     const subtotal = precoNum * qtdNum;
     
+    // Verifica se o preço atual é menor que o padrão (desconto)
+    const temDesconto = precoNum < produto.preco;
+
     // Check se já existe na lista e soma
     const itemExistente = itens.find(i => i.produtoId === produto.id && i.preco === precoNum);
     if (itemExistente) {
       setItens(itens.map(i => 
         i.produtoId === produto.id && i.preco === precoNum
-          ? { ...i, quantidade: i.quantidade + qtdNum, subtotal: i.subtotal + subtotal } 
+          ? { ...i, quantidade: i.quantidade + qtdNum, subtotal: i.subtotal + subtotal, temDesconto } 
           : i
       ));
     } else {
@@ -107,13 +128,15 @@ export function Orcamentos() {
         nome: produto.nome,
         preco: precoNum,
         quantidade: qtdNum,
-        subtotal
+        subtotal,
+        temDesconto
       }]);
     }
 
     setProdutoCodigo('');
     setQuantidade('');
     setPrecoUnitario('');
+    setCurrentIsDiscounted(false);
     return true; // Sucesso
   };
 
@@ -176,9 +199,12 @@ export function Orcamentos() {
         valorTotal: valorTotalOrcamento
       });
     } else {
+      // Usar data local sem problemas de timezone
+      const hoje = new Date();
+      const dataLocal = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
       addOrcamento({
         clienteId: parseInt(clienteId),
-        data: new Date().toISOString().split('T')[0],
+        data: dataLocal,
         itens,
         valorTotal: valorTotalOrcamento
       });
@@ -250,21 +276,18 @@ export function Orcamentos() {
       doc.text(`Telefone: ${cliente?.telefone || 'N/A'}`, 14, 72);
       
       const tableColumn = ["Item", "Qtd", "Valor Unit.", "Subtotal"];
-      const tableRows = [];
-
-      orcamento.itens.forEach(item => {
-        tableRows.push([
-          item.nome,
-          item.quantidade.toString(),
-          item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-          item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-        ]);
-      });
-
       autoTable(doc, {
         startY: 85,
         head: [tableColumn],
-        body: tableRows,
+        body: orcamento.itens.map(item => [
+          item.nome,
+          item.quantidade.toString(),
+          { 
+            content: item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+            styles: item.temDesconto ? { textColor: [37, 99, 235], fontStyle: 'bold' } : {}
+          },
+          item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+        ]),
         theme: 'grid',
         headStyles: { fillColor: [37, 99, 235], textColor: [255, 255, 255] },
         styles: { fontSize: 10, cellPadding: 5 },
@@ -383,34 +406,45 @@ export function Orcamentos() {
           {/* Seleção de Cliente */}
           <div className="relative">
             <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
-            <div className="relative">
-              <input 
-                type="text"
-                placeholder="Buscar cliente..."
-                value={clienteSearch}
-                onChange={(e) => {
-                  setClienteSearch(e.target.value);
-                  setClienteId('');
-                  setIsDropdownOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Tab' && isDropdownOpen) {
-                    const filtered = data.clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase()));
-                    if (filtered.length > 0) {
-                      e.preventDefault();
-                      setClienteId(filtered[0].id.toString());
-                      setClienteSearch(filtered[0].nome);
-                      setIsDropdownOpen(false);
-                      if (qtdRef.current) qtdRef.current.focus();
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input 
+                  type="text"
+                  placeholder="Buscar cliente..."
+                  value={clienteSearch}
+                  onChange={(e) => {
+                    setClienteSearch(e.target.value);
+                    setClienteId('');
+                    setIsDropdownOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab' && isDropdownOpen) {
+                      const filtered = data.clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase()));
+                      if (filtered.length > 0) {
+                        e.preventDefault();
+                        setClienteId(filtered[0].id.toString());
+                        setClienteSearch(filtered[0].nome);
+                        setIsDropdownOpen(false);
+                        if (qtdRef.current) qtdRef.current.focus();
+                      }
                     }
-                  }
-                }}
-                onFocus={() => setIsDropdownOpen(true)}
-                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  }}
+                  onFocus={() => setIsDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                  autoComplete="off"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setQuickClientForm({ nome: clienteSearch, telefone: '', cidade: '' }); setIsQuickClientOpen(true); }}
+                title="Cadastrar novo cliente rapidamente"
+                className="flex items-center gap-1.5 px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-medium transition-all shadow-sm shadow-emerald-600/20 whitespace-nowrap"
+              >
+                <UserPlus size={16} />
+                Novo
+              </button>
             </div>
             
             {isDropdownOpen && (
@@ -478,7 +512,7 @@ export function Orcamentos() {
                   onKeyDown={handlePrecoKeyDown}
                   placeholder="0.00"
                   autoComplete="off"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 outline-none font-mono"
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm focus:ring-2 outline-none font-mono transition-all ${currentIsDiscounted ? 'border-blue-300 bg-blue-50 text-blue-700 focus:ring-blue-500/20 focus:border-blue-600' : 'border-gray-300 focus:ring-blue-500/20 focus:border-blue-600'}`}
                 />
               </div>
               <button 
@@ -546,7 +580,7 @@ export function Orcamentos() {
                               className="w-24 bg-transparent text-right border-b border-dashed border-gray-400 focus:border-blue-500 outline-none hover:bg-white transition-colors py-1"
                             />
                           </td>
-                          <td className="px-4 py-3 text-right font-medium text-gray-700">
+                          <td className={`px-4 py-3 text-right font-medium ${item.temDesconto ? 'text-blue-600 bg-blue-50/30' : 'text-gray-700'}`}>
                             {item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </td>
                           <td className="px-4 py-3 text-center">
@@ -601,6 +635,83 @@ export function Orcamentos() {
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
+
+      {/* Modal Cadastro Rápido de Cliente */}
+      <Modal
+        isOpen={isQuickClientOpen}
+        onClose={() => setIsQuickClientOpen(false)}
+        title="Cadastro Rápido de Cliente"
+        maxWidth="max-w-md"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!quickClientForm.nome.trim()) return;
+            addCliente({
+              nome: quickClientForm.nome,
+              razaoSocial: '',
+              cnpj: '',
+              ie: '',
+              telefone: quickClientForm.telefone,
+              email: '',
+              endereco: '',
+              bairro: '',
+              cidade: quickClientForm.cidade,
+              consumoMensal: '',
+              proximoContato: '',
+              statusCrm: 'Lead',
+              observacoes: ''
+            });
+            // Seleciona automaticamente o cliente recém-criado
+            setTimeout(() => {
+              const novoCliente = data.clientes.find(c => c.nome === quickClientForm.nome);
+              if (novoCliente) {
+                setClienteId(novoCliente.id.toString());
+                setClienteSearch(novoCliente.nome);
+              } else {
+                setClienteSearch(quickClientForm.nome);
+              }
+            }, 100);
+            setIsQuickClientOpen(false);
+            showToast(`Cliente "${quickClientForm.nome}" cadastrado!`);
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+            <input
+              type="text" required autoComplete="off"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              value={quickClientForm.nome}
+              onChange={(e) => setQuickClientForm({ ...quickClientForm, nome: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+            <input
+              type="text" autoComplete="off"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              value={quickClientForm.telefone}
+              onChange={(e) => setQuickClientForm({ ...quickClientForm, telefone: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+            <select
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-white"
+              value={quickClientForm.cidade}
+              onChange={(e) => setQuickClientForm({ ...quickClientForm, cidade: e.target.value })}
+            >
+              <option value="">Selecione...</option>
+              {CIDADES_ORC.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="pt-2 flex justify-end gap-3">
+            <button type="button" onClick={() => setIsQuickClientOpen(false)} className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
+            <button type="submit" className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-md shadow-emerald-600/20">Cadastrar</button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Orcamentos } from './pages/Orcamentos';
 import { Vendas } from './pages/Vendas';
 import { Comissao } from './pages/Comissao';
 import { Despesas } from './pages/Despesas';
+import { Descontos } from './pages/Descontos';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             <Route path="/vendas" element={<Vendas />} />
             <Route path="/comissao" element={<Comissao />} />
             <Route path="/despesas" element={<Despesas />} />
+            <Route path="/descontos" element={<Descontos />} />
           </Routes>
         </Layout>
       </Router>

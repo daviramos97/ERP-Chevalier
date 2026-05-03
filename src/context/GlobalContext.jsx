@@ -102,7 +102,8 @@ export function GlobalProvider({ children }) {
         valor: 120.00,
         data: '2026-04-15'
       }
-    ]
+    ],
+    descontos: []
   };
 
   const [data, setData] = useState(defaultData);
@@ -301,6 +302,28 @@ export function GlobalProvider({ children }) {
     }));
   };
 
+  // Funções Auxiliares para Descontos (preços especiais por cliente)
+  const addDesconto = (desconto) => {
+    setData(prev => ({
+      ...prev,
+      descontos: [...(prev.descontos || []), { ...desconto, id: getNextId(prev.descontos || []) }]
+    }));
+  };
+
+  const updateDesconto = (id, descontoData) => {
+    setData(prev => ({
+      ...prev,
+      descontos: (prev.descontos || []).map(d => d.id === id ? { ...d, ...descontoData } : d)
+    }));
+  };
+
+  const deleteDesconto = (id) => {
+    setData(prev => ({
+      ...prev,
+      descontos: (prev.descontos || []).filter(d => d.id !== id)
+    }));
+  };
+
   return (
     <GlobalContext.Provider value={{ 
       data, 
@@ -322,7 +345,10 @@ export function GlobalProvider({ children }) {
       toggleComissaoPaga,
       addDespesa,
       updateDespesa,
-      deleteDespesa
+      deleteDespesa,
+      addDesconto,
+      updateDesconto,
+      deleteDesconto
     }}>
       {children}
     </GlobalContext.Provider>

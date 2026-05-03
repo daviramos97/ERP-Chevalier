@@ -20,7 +20,24 @@ export function Clientes() {
   const [selectedClienteHistory, setSelectedClienteHistory] = useState(null);
   
   // Form State
-  const initialForm = { nome: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '', endereco: '', observacoes: '' };
+  const STATUS_CONFIG = {
+    'Lead':             { color: 'bg-purple-100 text-purple-700' },
+    'Amostra Entregue': { color: 'bg-blue-100 text-blue-700' },
+    'Em Negociação':    { color: 'bg-yellow-100 text-yellow-700' },
+    'Ativo':            { color: 'bg-green-100 text-green-700' },
+    'Inativo':          { color: 'bg-gray-100 text-gray-500' },
+  };
+  const STATUS_OPTIONS = Object.keys(STATUS_CONFIG);
+  const CIDADES = ['Niterói', 'São Gonçalo', 'Itaboraí', 'Maricá'];
+  const FREQUENCIAS = ['Semanal', 'Quinzenal', 'Esporádico'];
+  const DIAS_ENTREGA = ['Quarta-feira', 'Quinta-feira'];
+
+  const initialForm = {
+    nome: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '',
+    endereco: '', bairro: '', cidade: '',
+    statusCrm: 'Lead', frequenciaCompra: '', volumeMedioPedido: '', diaEntrega: '',
+    observacoes: ''
+  };
   const [formData, setFormData] = useState(initialForm);
   
   // Paginação
@@ -63,6 +80,12 @@ export function Clientes() {
         telefone: cliente.telefone || '',
         email: cliente.email || '',
         endereco: cliente.endereco || '',
+        bairro: cliente.bairro || '',
+        cidade: cliente.cidade || '',
+        statusCrm: cliente.statusCrm || 'Lead',
+        frequenciaCompra: cliente.frequenciaCompra || '',
+        volumeMedioPedido: cliente.volumeMedioPedido || '',
+        diaEntrega: cliente.diaEntrega || '',
         observacoes: cliente.observacoes || ''
       });
     } else {
@@ -136,8 +159,9 @@ export function Clientes() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="p-4 font-semibold text-gray-600 text-sm">Nome</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Contato</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Nome / Contato</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Localização</th>
+              <th className="p-4 font-semibold text-gray-600 text-sm">Logística</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-center">Status</th>
               <th className="p-4 font-semibold text-gray-600 text-sm text-center">Ações</th>
             </tr>
@@ -149,19 +173,44 @@ export function Clientes() {
                 onClick={() => openHistory(c)}
                 className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer group"
               >
+                {/* Col 1: Nome + Contato */}
                 <td className="p-4">
-                  <div className="font-medium text-gray-800 group-hover:text-blue-600 transition-colors">{c.nome}</div>
-                  {c.cnpj && <div className="text-xs text-gray-500 mt-1">{c.cnpj}</div>}
+                  <div className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">{c.nome}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{c.telefone || '-'}</div>
+                  {c.cnpj && <div className="text-xs text-gray-400 mt-0.5">{c.cnpj}</div>}
                 </td>
+                {/* Col 2: Localização */}
                 <td className="p-4">
-                  <div className="text-sm text-gray-700">{c.telefone || '-'}</div>
-                  <div className="text-xs text-gray-500 mt-1">{c.email || '-'}</div>
+                  <div className="text-sm text-gray-700 font-medium">{c.cidade || '-'}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{c.bairro || '-'}</div>
                 </td>
+                {/* Col 3: Logística */}
+                <td className="p-4">
+                  <div className="flex flex-col gap-1">
+                    {c.frequenciaCompra && (
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md w-fit">
+                        🔄 {c.frequenciaCompra}
+                      </span>
+                    )}
+                    {c.volumeMedioPedido && (
+                      <span className="text-xs text-gray-600">
+                        <span className="font-bold">{c.volumeMedioPedido}</span> cx/pedido
+                      </span>
+                    )}
+                    {c.diaEntrega && (
+                      <span className="text-xs text-gray-500">🚚 {c.diaEntrega}</span>
+                    )}
+                    {!c.frequenciaCompra && !c.volumeMedioPedido && !c.diaEntrega && (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </div>
+                </td>
+                {/* Col 4: Status */}
                 <td className="p-4 text-center">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                    c.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    STATUS_CONFIG[c.statusCrm]?.color || 'bg-gray-100 text-gray-500'
                   }`}>
-                    {c.status}
+                    {c.statusCrm || 'Lead'}
                   </span>
                 </td>
                 <td className="p-4 text-center">
@@ -197,7 +246,7 @@ export function Clientes() {
             ))}
             {paginatedClientes.length === 0 && (
               <tr>
-                <td colSpan="4" className="p-8 text-center text-gray-500">Nenhum cliente cadastrado.</td>
+                <td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cliente cadastrado.</td>
               </tr>
             )}
           </tbody>
@@ -292,24 +341,90 @@ export function Clientes() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço Completo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Endereço (Rua / Número)</label>
               <input 
                 type="text"
                 autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                placeholder="Ex: Avenida Jose manna junior, 400"
+                placeholder="Ex: Avenida José Manna Junior, 400"
                 value={formData.endereco} onChange={(e) => setFormData({...formData, endereco: e.target.value})}
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={formData.bairro} onChange={(e) => setFormData({...formData, bairro: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+              <select
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                value={formData.cidade} onChange={(e) => setFormData({...formData, cidade: e.target.value})}
+              >
+                <option value="">Selecione...</option>
+                {CIDADES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Separador CRM */}
+            <div className="md:col-span-2 border-t border-gray-100 pt-4 mt-1">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Informações CRM &amp; Logística</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status do Cliente</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                    value={formData.statusCrm} onChange={(e) => setFormData({...formData, statusCrm: e.target.value})}
+                  >
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Frequência de Compra</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                    value={formData.frequenciaCompra} onChange={(e) => setFormData({...formData, frequenciaCompra: e.target.value})}
+                  >
+                    <option value="">Selecione...</option>
+                    {FREQUENCIAS.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Volume Médio por Pedido <span className="text-gray-400 font-normal">(caixas)</span></label>
+                  <input
+                    type="number" min="0" autoComplete="off"
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Ex: 500"
+                    value={formData.volumeMedioPedido} onChange={(e) => setFormData({...formData, volumeMedioPedido: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dia de Entrega</label>
+                  <select
+                    className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+                    value={formData.diaEntrega} onChange={(e) => setFormData({...formData, diaEntrega: e.target.value})}
+                  >
+                    <option value="">Selecione...</option>
+                    {DIAS_ENTREGA.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
               <textarea 
-                rows="3"
+                rows="2"
                 autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none"
                 value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
               ></textarea>
             </div>
+
           </div>
           <div className="pt-4 flex justify-end gap-3">
             <button 
@@ -348,11 +463,37 @@ export function Clientes() {
               <div className="mb-6 pb-6 border-b border-gray-100">
                 <h3 className="font-bold text-xl text-gray-800">{selectedClienteHistory.nome}</h3>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded-md">{selectedClienteHistory.cnpj || 'Sem CPF/CNPJ'}</span>
-                  <span className={`text-xs font-medium px-2 py-1 rounded-md ${selectedClienteHistory.status === 'Ativo' ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-600'}`}>
-                    {selectedClienteHistory.status}
+                  <span className={`text-xs font-semibold px-2 py-1 rounded-md ${ STATUS_CONFIG[selectedClienteHistory.statusCrm]?.color || 'bg-gray-100 text-gray-500' }`}>
+                    {selectedClienteHistory.statusCrm || 'Lead'}
                   </span>
+                  {selectedClienteHistory.cnpj && (
+                    <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded-md">{selectedClienteHistory.cnpj}</span>
+                  )}
                 </div>
+
+                {/* Info de Logística */}
+                {(selectedClienteHistory.frequenciaCompra || selectedClienteHistory.volumeMedioPedido || selectedClienteHistory.diaEntrega) && (
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    {selectedClienteHistory.frequenciaCompra && (
+                      <div className="bg-indigo-50 p-2.5 rounded-xl text-center">
+                        <p className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Freq.</p>
+                        <p className="text-xs font-bold text-indigo-700 mt-0.5">{selectedClienteHistory.frequenciaCompra}</p>
+                      </div>
+                    )}
+                    {selectedClienteHistory.volumeMedioPedido && (
+                      <div className="bg-gray-50 p-2.5 rounded-xl text-center">
+                        <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Vol. Médio</p>
+                        <p className="text-xs font-bold text-gray-700 mt-0.5">{selectedClienteHistory.volumeMedioPedido} cx</p>
+                      </div>
+                    )}
+                    {selectedClienteHistory.diaEntrega && (
+                      <div className="bg-emerald-50 p-2.5 rounded-xl text-center">
+                        <p className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Entrega</p>
+                        <p className="text-xs font-bold text-emerald-700 mt-0.5">{selectedClienteHistory.diaEntrega.replace('-feira', '')}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 {/* Stats Rápidas */}
                 <div className="grid grid-cols-2 gap-3 mt-6">
