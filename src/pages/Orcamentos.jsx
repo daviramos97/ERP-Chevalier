@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { GlobalContext } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus } from 'lucide-react';
+import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus, CheckSquare } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -33,15 +33,60 @@ export function Orcamentos() {
 
   // Quick Client State
   const [isQuickClientOpen, setIsQuickClientOpen] = useState(false);
-  const [quickClientForm, setQuickClientForm] = useState({ nome: '', telefone: '', cidade: '' });
+  const [quickClientForm, setQuickClientForm] = useState({ nome: '', contato: '', telefone: '', cidade: '' });
   const CIDADES_ORC = ['Niterói', 'São Gonçalo', 'Itaboraí', 'Maricá'];
 
   // Toast State
   const [toastMsg, setToastMsg] = useState('');
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 3000);
+  };
+
+  const maskTelefone = (value) => {
+    const v = value.replace(/\D/g, "");
+    if (v.length <= 10) {
+      return v
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d)/, "$1-$2")
+        .slice(0, 14);
+    } else {
+      return v
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{5})(\d)/, "$1-$2")
+        .slice(0, 15);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === data.orcamentos.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(data.orcamentos.map(o => o.id));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Limpar Selecionados',
+      message: `Deseja excluir os ${selectedIds.length} orçamento(s) selecionado(s)? Esta ação não pode ser desfeita.`,
+      isDestructive: true,
+      onConfirm: () => {
+        selectedIds.forEach(id => deleteOrcamento(id));
+        setSelectedIds([]);
+        setConfirmDialog({ isOpen: false });
+        showToast(`${selectedIds.length} orçamento(s) excluído(s).`);
+      }
+    });
   };
 
   const valorTotalOrcamento = itens.reduce((acc, item) => acc + item.subtotal, 0);
@@ -340,13 +385,24 @@ export function Orcamentos() {
 
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Orçamentos</h1>
-        <button 
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-blue-600/20"
-        >
-          <Plus size={20} />
-          Novo Orçamento
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-red-600/20"
+            >
+              <Trash2 size={18} />
+              Limpar Selecionados ({selectedIds.length})
+            </button>
+          )}
+          <button 
+            onClick={() => openModal()}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-blue-600/20"
+          >
+            <Plus size={20} />
+            Novo Orçamento
+          </button>
+        </div>
       </div>
 
       {/* Tabela de Orçamentos */}
@@ -354,6 +410,14 @@ export function Orcamentos() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="p-4 w-10">
+                <input
+                  type="checkbox"
+                  checked={data.orcamentos.length > 0 && selectedIds.length === data.orcamentos.length}
+                  onChange={toggleSelectAll}
+                  className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                />
+              </th>
               <th className="p-4 font-semibold text-gray-600 text-sm">ID</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Cliente</th>
               <th className="p-4 font-semibold text-gray-600 text-sm">Data</th>
@@ -364,8 +428,17 @@ export function Orcamentos() {
           <tbody>
             {data.orcamentos.map((orc) => {
               const cli = data.clientes.find(c => c.id === orc.clienteId);
+              const isSelected = selectedIds.includes(orc.id);
               return (
-                <tr key={orc.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                <tr key={orc.id} className={`border-b border-gray-50 transition-colors ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}>
+                  <td className="p-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(orc.id)}
+                      className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                    />
+                  </td>
                   <td className="p-4 text-gray-500 text-sm">#{orc.id}</td>
                   <td className="p-4 font-medium text-gray-800">{cli?.nome || 'N/A'}</td>
                   <td className="p-4 text-gray-600">
@@ -411,7 +484,7 @@ export function Orcamentos() {
             })}
             {data.orcamentos.length === 0 && (
               <tr>
-                <td colSpan="5" className="p-8 text-center text-gray-500">Nenhum orçamento gerado.</td>
+                <td colSpan="6" className="p-8 text-center text-gray-500">Nenhum orçamento gerado.</td>
               </tr>
             )}
           </tbody>
@@ -672,6 +745,7 @@ export function Orcamentos() {
             if (!quickClientForm.nome.trim()) return;
             addCliente({
               nome: quickClientForm.nome,
+              contato: quickClientForm.contato,
               razaoSocial: '',
               cnpj: '',
               ie: '',
@@ -680,50 +754,49 @@ export function Orcamentos() {
               endereco: '',
               bairro: '',
               cidade: quickClientForm.cidade,
-              consumoMensal: '',
-              proximoContato: '',
-              statusCrm: 'Lead',
-              observacoes: ''
+              statusCrm: 'Lead'
             });
-            // Seleciona automaticamente o cliente recém-criado
-            setTimeout(() => {
-              const novoCliente = data.clientes.find(c => c.nome === quickClientForm.nome);
-              if (novoCliente) {
-                setClienteId(novoCliente.id.toString());
-                setClienteSearch(novoCliente.nome);
-              } else {
-                setClienteSearch(quickClientForm.nome);
-              }
-            }, 100);
             setIsQuickClientOpen(false);
-            showToast(`Cliente "${quickClientForm.nome}" cadastrado!`);
+            setQuickClientForm({ nome: '', contato: '', telefone: '', cidade: '' });
+            showToast('Cliente cadastrado e pronto para uso!');
           }}
           className="space-y-4"
         >
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
-            <input
-              type="text" required autoComplete="off"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-              value={quickClientForm.nome}
-              onChange={(e) => setQuickClientForm({ ...quickClientForm, nome: e.target.value })}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Pizzaria / Cliente *</label>
+            <input 
+              type="text" required
+              autoComplete="off"
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+              value={quickClientForm.nome} onChange={(e) => setQuickClientForm({...quickClientForm, nome: e.target.value})}
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-            <input
-              type="text" autoComplete="off"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-              value={quickClientForm.telefone}
-              onChange={(e) => setQuickClientForm({ ...quickClientForm, telefone: e.target.value })}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contato</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={quickClientForm.contato} onChange={(e) => setQuickClientForm({...quickClientForm, contato: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                placeholder="(xx) xxxxx-xxxx"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={quickClientForm.telefone} onChange={(e) => setQuickClientForm({...quickClientForm, telefone: maskTelefone(e.target.value)})}
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
             <select
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-white"
-              value={quickClientForm.cidade}
-              onChange={(e) => setQuickClientForm({ ...quickClientForm, cidade: e.target.value })}
+              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all bg-white"
+              value={quickClientForm.cidade} onChange={(e) => setQuickClientForm({...quickClientForm, cidade: e.target.value})}
             >
               <option value="">Selecione...</option>
               {CIDADES_ORC.map(c => <option key={c} value={c}>{c}</option>)}

@@ -33,7 +33,7 @@ export function Clientes() {
   const DIAS_ENTREGA = ['Quarta-feira', 'Quinta-feira'];
 
   const initialForm = {
-    nome: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '',
+    nome: '', contato: '', razaoSocial: '', cnpj: '', ie: '', telefone: '', email: '',
     endereco: '', bairro: '', cidade: '',
     statusCrm: 'Lead', frequenciaCompra: '', volumeMedioPedido: '', diaEntrega: '',
     observacoes: ''
@@ -68,12 +68,28 @@ export function Clientes() {
     return value.replace(/\D/g, "").slice(0, 15); // IE varia por estado, mantemos apenas números
   };
 
+  const maskTelefone = (value) => {
+    const v = value.replace(/\D/g, "");
+    if (v.length <= 10) {
+      return v
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{4})(\d)/, "$1-$2")
+        .slice(0, 14);
+    } else {
+      return v
+        .replace(/(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{5})(\d)/, "$1-$2")
+        .slice(0, 15);
+    }
+  };
+
   // Handlers
   const openModal = (cliente = null) => {
     if (cliente) {
       setEditingCliente(cliente);
       setFormData({
         nome: cliente.nome,
+        contato: cliente.contato || '',
         razaoSocial: cliente.razaoSocial || '',
         cnpj: cliente.cnpj || '',
         ie: cliente.ie || '',
@@ -176,7 +192,10 @@ export function Clientes() {
                 {/* Col 1: Nome + Contato */}
                 <td className="p-4">
                   <div className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">{c.nome}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{c.telefone || '-'}</div>
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {c.contato && <span className="font-bold text-blue-500">{c.contato}: </span>}
+                    {c.telefone || '-'}
+                  </div>
                   {c.cnpj && <div className="text-xs text-gray-400 mt-0.5">{c.cnpj}</div>}
                 </td>
                 {/* Col 2: Localização */}
@@ -287,12 +306,32 @@ export function Clientes() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Pizzaria / Cliente *</label>
               <input 
                 type="text" required
                 autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Pessoa de Contato</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                placeholder="Com quem você fala?"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={formData.contato} onChange={(e) => setFormData({...formData, contato: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+              <input 
+                type="text"
+                autoComplete="off"
+                placeholder="(xx) xxxxx-xxxx"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: maskTelefone(e.target.value)})}
               />
             </div>
             <div className="md:col-span-2">
@@ -320,15 +359,6 @@ export function Clientes() {
                 autoComplete="off"
                 className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                 value={formData.ie} onChange={(e) => setFormData({...formData, ie: maskIE(e.target.value)})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-              <input 
-                type="text"
-                autoComplete="off"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                value={formData.telefone} onChange={(e) => setFormData({...formData, telefone: e.target.value})}
               />
             </div>
             <div>
@@ -466,8 +496,11 @@ export function Clientes() {
                   <span className={`text-xs font-semibold px-2 py-1 rounded-md ${ STATUS_CONFIG[selectedClienteHistory.statusCrm]?.color || 'bg-gray-100 text-gray-500' }`}>
                     {selectedClienteHistory.statusCrm || 'Lead'}
                   </span>
-                  {selectedClienteHistory.cnpj && (
-                    <span className="text-xs font-medium bg-blue-50 text-blue-600 px-2 py-1 rounded-md">{selectedClienteHistory.cnpj}</span>
+                  {selectedClienteHistory.contato && (
+                    <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">👤 {selectedClienteHistory.contato}</span>
+                  )}
+                  {selectedClienteHistory.telefone && (
+                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-md">📞 {selectedClienteHistory.telefone}</span>
                   )}
                 </div>
 
