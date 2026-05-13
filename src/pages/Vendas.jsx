@@ -1,8 +1,8 @@
 import { useContext, useState, useRef, useEffect } from 'react';
-import { GlobalContext } from '../context/GlobalContext';
+import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Download, Trash2, ShoppingCart, Search, Edit2, Eye, Copy, Image } from 'lucide-react';
+import { Plus, Download, Trash2, ShoppingCart, Search, Edit2, Eye, Copy, Image, ArrowLeft, User } from 'lucide-react';
 
 // Retorna a data/hora local no formato yyyy-MM-ddTHH:mm (sem conversão UTC)
 const localDateTimeStr = () => {
@@ -16,7 +16,8 @@ export function Vendas() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVenda, setEditingVenda] = useState(null);
-  const [viewingVenda, setViewingVenda] = useState(null);
+  const [selectedVendaId, setSelectedVendaId] = useState(null);
+  const [vendaSearch, setVendaSearch] = useState('');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importSearchTerm, setImportSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
@@ -77,7 +78,6 @@ export function Vendas() {
     setProdutoCodigo('');
     setQuantidade('');
     setPrecoUnitario('');
-    setViewingVenda(null);
     setIsModalOpen(true);
   };
 
@@ -392,100 +392,224 @@ export function Vendas() {
     });
   };
 
+  const filteredVendas = data.vendas.filter(v => {
+    const cli = data.clientes.find(c => c.id === v.clienteId);
+    const termo = normalizeSearch(vendaSearch);
+    return normalizeSearch(v.id).includes(termo) || (cli && normalizeSearch(cli.nome).includes(termo));
+  }).sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+
+  const selectedVenda = data.vendas.find(v => v.id === selectedVendaId);
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[calc(100vh-4rem)] relative">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Vendas</h1>
-        <button 
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-green-600/20"
-        >
-          <ShoppingCart size={20} />
-          Registrar Venda
-        </button>
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
+      
+      {/* Painel Esquerdo: Lista de Vendas */}
+      <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedVendaId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-6 border-b border-gray-100 bg-white">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-bold text-gray-800">Vendas</h1>
+            <button 
+              onClick={() => openModal()}
+              className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm"
+              title="Registrar Venda"
+            >
+              <Plus size={20} />
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por ID ou cliente..."
+              value={vendaSearch}
+              onChange={(e) => setVendaSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none bg-white text-sm"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {filteredVendas.map(venda => {
+            const cli = data.clientes.find(c => c.id === venda.clienteId);
+            return (
+              <button
+                key={venda.id}
+                onClick={() => setSelectedVendaId(venda.id)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                  selectedVendaId === venda.id 
+                    ? 'bg-green-600 text-white shadow-md shadow-green-600/20' 
+                    : 'hover:bg-white text-gray-700 hover:shadow-sm border border-transparent hover:border-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-3 text-left w-full overflow-hidden">
+                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${selectedVendaId === venda.id ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+                    #{venda.id}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm truncate">{cli?.nome || 'N/A'}</p>
+                    <div className="flex justify-between items-center mt-0.5">
+                      <p className={`text-[10px] uppercase tracking-wider truncate ${selectedVendaId === venda.id ? 'text-green-100' : 'text-gray-400'}`}>
+                        {new Date(venda.dataHora).toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className={`text-xs font-bold ${selectedVendaId === venda.id ? 'text-white' : 'text-green-600'}`}>
+                        {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {filteredVendas.length === 0 && (
+             <div className="text-center p-4 text-gray-500 text-sm">Nenhuma venda encontrada.</div>
+          )}
+        </div>
       </div>
 
-      {/* Tabela de Vendas */}
-      <div className="overflow-x-auto border border-gray-100 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm">ID / Data</th>
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm">Cliente</th>
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm">Comissão (%)</th>
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm text-right">Comissão (R$)</th>
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm text-right">Total Venda</th>
-              <th className="py-3 px-4 font-semibold text-gray-600 text-sm text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.vendas.map((venda) => {
-              const cli = data.clientes.find(c => c.id === venda.clienteId);
-              return (
-                <tr key={venda.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-gray-800">#{venda.id}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(venda.dataHora).toLocaleString('pt-BR')}
+      {/* Painel Direito: Detalhes da Venda */}
+      <div className={`flex-1 flex flex-col bg-white ${!selectedVendaId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedVenda ? (
+          <div className="flex flex-col h-full">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setSelectedVendaId(null)}
+                  className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    Pedido #{selectedVenda.id}
+                    {selectedVenda.orcamentoOrigemId && (
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] uppercase font-bold rounded-full">
+                        ORÇ #{selectedVenda.orcamentoOrigemId}
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-widest">
+                    {new Date(selectedVenda.dataHora).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => generateOrderImage(selectedVenda)}
+                  className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                  title="Gerar Pedido"
+                >
+                  <Image size={18} />
+                </button>
+                <button
+                  onClick={() => openDuplicateModal(selectedVenda)}
+                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                  title="Duplicar Pedido"
+                >
+                  <Copy size={18} />
+                </button>
+                <button
+                  onClick={() => openModal(selectedVenda)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Editar Venda"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button
+                  onClick={() => handleDeleteVenda(selectedVenda.id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Excluir Venda"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto bg-gray-50/30 space-y-6">
+              {/* Cliente Info */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <User size={14} /> Dados do Cliente
+                </h3>
+                {(() => {
+                  const cli = data.clientes.find(c => c.id === selectedVenda.clienteId);
+                  return (
+                    <div>
+                      <p className="font-bold text-gray-800 text-lg mb-1">{cli?.nome || 'N/A'}</p>
+                      <div className="text-sm text-gray-600 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {cli?.telefone && <p><span className="font-medium text-gray-500">Telefone:</span> {cli.telefone}</p>}
+                        {cli?.cidade && <p><span className="font-medium text-gray-500">Localidade:</span> {cli.cidade} {cli.bairro ? `- ${cli.bairro}` : ''}</p>}
+                      </div>
                     </div>
-                  </td>
-                  <td className="py-3 px-4 text-gray-800">{cli?.nome || 'N/A'}</td>
-                  <td className="py-3 px-4 text-gray-600">{venda.comissaoPercentual}%</td>
-                  <td className="py-3 px-4 font-medium text-orange-600 text-right">
-                    {venda.valorComissao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-green-600 text-right">
-                    {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => setViewingVenda(venda)}
-                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Visualizar Venda"
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => generateOrderImage(venda)}
-                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Gerar Pedido (Imagem para Fábrica)"
-                      >
-                        <Image size={18} />
-                      </button>
-                      <button
-                        onClick={() => openDuplicateModal(venda)}
-                        className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                        title="Duplicar Pedido"
-                      >
-                        <Copy size={18} />
-                      </button>
-                      <button 
-                        onClick={() => openModal(venda)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar Venda"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteVenda(venda.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir Venda"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {data.vendas.length === 0 && (
-              <tr>
-                <td colSpan="6" className="p-8 text-center text-gray-500">Nenhuma venda registrada.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  );
+                })()}
+              </div>
+
+              {/* Itens */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <ShoppingCart size={14} /> Itens do Pedido
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-600 border-y border-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 font-semibold">Produto</th>
+                        <th className="px-4 py-2 font-semibold text-center">Qtd</th>
+                        <th className="px-4 py-2 font-semibold text-right">Unitário</th>
+                        <th className="px-4 py-2 font-semibold text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedVenda.itens.map((item, idx) => (
+                        <tr key={idx} className="border-b border-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{item.nome}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 bg-gray-50/30">{item.quantidade}</td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-700">
+                            {item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totais */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-5">
+                  <p className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-1">
+                    Comissão ({selectedVenda.comissaoPercentual}%)
+                  </p>
+                  <p className="text-2xl font-black text-orange-600">
+                    {selectedVenda.valorComissao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+                <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
+                  <p className="text-xs font-bold text-green-500 uppercase tracking-widest mb-1">
+                    Total da Venda
+                  </p>
+                  <p className="text-2xl font-black text-green-700">
+                    {selectedVenda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <ShoppingCart size={32} className="text-gray-300" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Selecione uma venda</h2>
+            <p className="text-gray-500 max-w-sm text-sm">
+              Escolha uma venda na lista ao lado para visualizar os detalhes, itens do pedido e opções disponíveis.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Modal Registrar Venda */}
@@ -735,8 +859,8 @@ export function Vendas() {
                 {(() => {
                   const filtered = data.orcamentos.filter(o => {
                     const cli = data.clientes.find(c => c.id === o.clienteId);
-                    const term = importSearchTerm.toLowerCase();
-                    return o.id.toString().includes(term) || (cli && cli.nome.toLowerCase().includes(term));
+                    const term = normalizeSearch(importSearchTerm);
+                    return normalizeSearch(o.id).includes(term) || (cli && normalizeSearch(cli.nome).includes(term));
                   });
 
                   if (filtered.length === 0) {
@@ -801,113 +925,6 @@ export function Vendas() {
         onConfirm={confirmDialog.onConfirm}
         onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
-
-      {/* Modal Visualizar Venda (Read-only) */}
-      {viewingVenda && (() => {
-        const cli = data.clientes.find(c => c.id === viewingVenda.clienteId);
-        return (
-          <Modal
-            isOpen={!!viewingVenda}
-            onClose={() => setViewingVenda(null)}
-            title={`Venda #${viewingVenda.id}`}
-            maxWidth="max-w-2xl"
-          >
-            <div className="space-y-5">
-              {/* Cabeçalho */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Cliente</p>
-                  <p className="font-semibold text-gray-800">{cli?.nome || 'N/A'}</p>
-                  {cli?.telefone && <p className="text-xs text-gray-500 mt-0.5">{cli.telefone}</p>}
-                </div>
-                <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Data</p>
-                  <p className="font-semibold text-gray-800">
-                    {new Date(viewingVenda.dataHora).toLocaleString('pt-BR', { dateStyle: 'long', timeStyle: 'short' })}
-                  </p>
-                  {viewingVenda.orcamentoOrigemId && (
-                    <p className="text-xs text-blue-600 mt-0.5">Originado do Orçamento #{viewingVenda.orcamentoOrigemId}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Itens */}
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Itens da Venda</p>
-                </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-50 text-gray-500">
-                      <th className="px-4 py-2 text-left font-semibold">Produto</th>
-                      <th className="px-4 py-2 text-center font-semibold">Qtd</th>
-                      <th className="px-4 py-2 text-right font-semibold">Unit.</th>
-                      <th className="px-4 py-2 text-right font-semibold">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewingVenda.itens.map((item, idx) => (
-                      <tr key={idx} className="border-b border-gray-50">
-                        <td className="px-4 py-3 font-medium text-gray-800">{item.nome}</td>
-                        <td className="px-4 py-3 text-center text-gray-600">{item.quantidade}</td>
-                        <td className="px-4 py-3 text-right text-gray-600">
-                          {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                        <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                          {item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totais */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-orange-50 rounded-xl p-4 border border-orange-100 text-right">
-                  <p className="text-xs font-bold text-orange-400 uppercase tracking-wider">Comissão ({viewingVenda.comissaoPercentual}%)</p>
-                  <p className="text-xl font-black text-orange-600 mt-1">
-                    {viewingVenda.valorComissao.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-                <div className="bg-green-50 rounded-xl p-4 border border-green-100 text-right">
-                  <p className="text-xs font-bold text-green-400 uppercase tracking-wider">Total da Venda</p>
-                  <p className="text-xl font-black text-green-700 mt-1">
-                    {viewingVenda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-1">
-                <button
-                  onClick={() => generateOrderImage(viewingVenda)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-purple-600 hover:bg-purple-50 rounded-xl font-medium transition-colors border border-purple-100"
-                >
-                  <Image size={16} /> Gerar Pedido
-                </button>
-                <button
-                  onClick={() => openDuplicateModal(viewingVenda)}
-                  className="flex items-center gap-2 px-4 py-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl font-medium transition-colors border border-emerald-100"
-                >
-                  <Copy size={16} /> Duplicar Pedido
-                </button>
-                <button
-                  onClick={() => { setViewingVenda(null); openModal(viewingVenda); }}
-                  className="flex items-center gap-2 px-4 py-2.5 text-blue-600 hover:bg-blue-50 rounded-xl font-medium transition-colors border border-blue-100"
-                >
-                  <Edit2 size={16} /> Editar
-                </button>
-                <button
-                  onClick={() => setViewingVenda(null)}
-                  className="px-5 py-2.5 bg-gray-800 hover:bg-gray-900 text-white rounded-xl font-medium transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          </Modal>
-        );
-      })()}
     </div>
   );
 }

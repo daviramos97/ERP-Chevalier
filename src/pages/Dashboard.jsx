@@ -1,4 +1,4 @@
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -10,6 +10,10 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function Dashboard() {
   const { data } = useContext(GlobalContext);
+
+  const [periodoFiltro, setPeriodoFiltro] = useState('este_mes');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
 
   const {
     faturamentoMes,
@@ -27,21 +31,35 @@ export function Dashboard() {
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    // Filtros para o mês atual
-    const vendasMes = data.vendas.filter(v => {
+    let start, end;
+    if (periodoFiltro === 'este_mes') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    } else if (periodoFiltro === 'ultimo_mes') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+    } else if (periodoFiltro === 'ano') {
+      start = new Date(now.getFullYear(), 0, 1);
+      end = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    } else if (periodoFiltro === 'personalizado') {
+      start = dataInicio ? new Date(dataInicio + 'T00:00:00') : new Date(0);
+      end = dataFim ? new Date(dataFim + 'T23:59:59') : new Date();
+    }
+
+    const vendasFiltradas = data.vendas.filter(v => {
       const d = new Date(v.dataHora);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      return d >= start && d <= end;
     });
 
-    const despesasDoMes = data.despesas.filter(d => {
+    const despesasFiltradas = data.despesas.filter(d => {
       const dDate = new Date(d.data);
-      return dDate.getMonth() === currentMonth && dDate.getFullYear() === currentYear;
+      return dDate >= start && dDate <= end;
     });
 
     // 1. Cards de Topo
-    const faturamento = vendasMes.reduce((acc, v) => acc + (v.valorTotal || 0), 0);
-    const comissao = vendasMes.reduce((acc, v) => acc + (v.valorComissao || 0), 0);
-    const despesas = despesasDoMes.reduce((acc, d) => acc + (d.valor || 0), 0);
+    const faturamento = vendasFiltradas.reduce((acc, v) => acc + (v.valorTotal || 0), 0);
+    const comissao = vendasFiltradas.reduce((acc, v) => acc + (v.valorComissao || 0), 0);
+    const despesas = despesasFiltradas.reduce((acc, d) => acc + (d.valor || 0), 0);
     const lucro = comissao - despesas;
 
     // 2. Gráfico de Barras (Últimos 6 meses)
@@ -61,15 +79,15 @@ export function Dashboard() {
         .reduce((acc, desp) => acc + (desp.valor || 0), 0);
 
       ultimos6Meses.push({
-        name: monthName.charAt(0).toUpperCase() + monthName.slice(1), // Ex: Abr
+        name: monthName.charAt(0).toUpperCase() + monthName.slice(1),
         Comissão: comissaoMes,
         Despesas: despesaMes
       });
     }
 
-    // 3. Gráfico de Donut (Top 5 Produtos)
+    // 3. Gráfico de Donut/Pie (Top 5 Produtos)
     const productSales = {};
-    data.vendas.forEach(venda => {
+    vendasFiltradas.forEach(venda => {
       venda.itens.forEach(item => {
         if (!productSales[item.nome]) {
           productSales[item.nome] = 0;
@@ -83,10 +101,7 @@ export function Dashboard() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // 4. Últimas 5 Vendas
-    const ultimas = [...data.vendas]
-      .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora))
-      .slice(0, 5);
+    // 4. Últimas Vendas (Removido daqui pois não estava sendo usado no retorno)
 
     // 5. Alerta de Comissão em Atraso
     const prevMonthDate = new Date(currentYear, currentMonth - 1, 1);
@@ -100,7 +115,6 @@ export function Dashboard() {
       })
       .reduce((acc, v) => acc + (v.valorComissao || 0), 0);
 
-    // Se hoje for > dia 10 e a comissão do mês anterior não foi paga e houver valor, mostrar alerta
     const show = now.getDate() > 10 && !isPrevMonthPaid && comissaoMesAnterior > 0;
 
     return {
@@ -111,18 +125,19 @@ export function Dashboard() {
       last6MonthsData: ultimos6Meses,
       topProducts: top5,
       showAlert: show,
-      // 6. Coluna 1: Melhores Clientes (Total acumulado)
+      // 6. Coluna 1: Melhores Clientes (Afetado pelo filtro)
       melhoresClientes: data.clientes
         .map(c => {
-          const totalComprado = data.vendas
+          const totalComprado = vendasFiltradas
             .filter(v => v.clienteId === c.id)
             .reduce((acc, v) => acc + (v.valorTotal || 0), 0);
           return { ...c, totalComprado };
         })
+        .filter(c => c.totalComprado > 0)
         .sort((a, b) => b.totalComprado - a.totalComprado)
-        .slice(0, 5),
+        .slice(0, 3),
 
-      // 7. Coluna 2: Mais tempo sem pedir (Inativos)
+      // 7. Coluna 2: Mais tempo sem pedir (Inativos de todos os tempos)
       maisTempoSemPedir: data.clientes
         .map(c => {
           const vendasCliente = data.vendas
@@ -131,17 +146,17 @@ export function Dashboard() {
           const ultimaVenda = vendasCliente.length > 0 ? vendasCliente[0].dataHora : null;
           return { ...c, ultimaVenda };
         })
-        .filter(c => c.ultimaVenda !== null) // Apenas quem já comprou
+        .filter(c => c.ultimaVenda !== null)
         .sort((a, b) => new Date(a.ultimaVenda) - new Date(b.ultimaVenda))
-        .slice(0, 5),
+        .slice(0, 3),
 
-      // 8. Coluna 3: Orçamentos Pendentes (Maiores Valores)
+      // 8. Coluna 3: Orçamentos Pendentes (Geral)
       orcamentosPendentes: data.orcamentos
         .filter(o => !data.vendas.some(v => v.orcamentoOrigemId === o.id))
         .sort((a, b) => b.valorTotal - a.valorTotal)
-        .slice(0, 5)
+        .slice(0, 3)
     };
-  }, [data]);
+  }, [data, periodoFiltro, dataInicio, dataFim]);
 
   const formatCurrency = (value) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -149,6 +164,41 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header com Filtros */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <select 
+            value={periodoFiltro}
+            onChange={(e) => setPeriodoFiltro(e.target.value)}
+            className="border border-gray-300 rounded-xl px-4 py-2.5 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
+          >
+            <option value="este_mes">Este Mês</option>
+            <option value="ultimo_mes">Último Mês</option>
+            <option value="ano">Este Ano</option>
+            <option value="personalizado">Personalizado</option>
+          </select>
+          
+          {periodoFiltro === 'personalizado' && (
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={dataInicio}
+                onChange={(e) => setDataInicio(e.target.value)}
+                className="border border-gray-300 rounded-xl px-3 py-2.5 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+              />
+              <span className="text-gray-500 text-sm">até</span>
+              <input 
+                type="date" 
+                value={dataFim}
+                onChange={(e) => setDataFim(e.target.value)}
+                className="border border-gray-300 rounded-xl px-3 py-2.5 bg-white text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Banner de Alerta Condicional */}
       {showAlert && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm flex items-start gap-3 animate-pulse">
@@ -170,7 +220,7 @@ export function Dashboard() {
             <TrendingUp size={24} />
           </div>
           <div className="z-10">
-            <p className="text-sm font-semibold text-blue-800 uppercase tracking-wider mb-1">Faturamento Mensal</p>
+            <p className="text-sm font-semibold text-blue-800 uppercase tracking-wider mb-1">Faturamento</p>
             <h3 className="text-2xl font-black text-gray-800">{formatCurrency(faturamentoMes)}</h3>
           </div>
         </div>
@@ -181,7 +231,7 @@ export function Dashboard() {
             <DollarSign size={24} />
           </div>
           <div className="z-10">
-            <p className="text-sm font-semibold text-emerald-800 uppercase tracking-wider mb-1">Previsão Comissão</p>
+            <p className="text-sm font-semibold text-emerald-800 uppercase tracking-wider mb-1">Comissão</p>
             <h3 className="text-2xl font-black text-gray-800">{formatCurrency(previsaoComissao)}</h3>
           </div>
         </div>
@@ -192,7 +242,7 @@ export function Dashboard() {
             <Activity size={24} />
           </div>
           <div className="z-10">
-            <p className="text-sm font-semibold text-orange-800 uppercase tracking-wider mb-1">Despesas do Mês</p>
+            <p className="text-sm font-semibold text-orange-800 uppercase tracking-wider mb-1">Despesas</p>
             <h3 className="text-2xl font-black text-gray-800">{formatCurrency(despesasMes)}</h3>
           </div>
         </div>
@@ -235,7 +285,7 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Gráfico de Donut */}
+        {/* Gráfico de Donut (Pizza) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
           <h3 className="text-lg font-bold text-gray-800 mb-6">Top 5 Produtos</h3>
           {topProducts.length > 0 ? (
@@ -246,7 +296,6 @@ export function Dashboard() {
                     data={topProducts}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"

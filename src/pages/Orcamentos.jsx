@@ -1,6 +1,6 @@
 import { useContext, useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { GlobalContext } from '../context/GlobalContext';
+import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus, CheckSquare } from 'lucide-react';
@@ -515,7 +515,7 @@ export function Orcamentos() {
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Tab' && isDropdownOpen) {
-                      const filtered = data.clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase()));
+                      const filtered = data.clientes.filter(c => normalizeSearch(c.nome).includes(normalizeSearch(clienteSearch)));
                       if (filtered.length > 0) {
                         e.preventDefault();
                         setClienteId(filtered[0].id.toString());
@@ -545,7 +545,7 @@ export function Orcamentos() {
             
             {isDropdownOpen && (
               <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                {data.clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase())).map(c => (
+                {data.clientes.filter(c => normalizeSearch(c.nome).includes(normalizeSearch(clienteSearch))).map(c => (
                   <li 
                     key={c.id}
                     onClick={() => {
@@ -558,7 +558,7 @@ export function Orcamentos() {
                     {c.nome}
                   </li>
                 ))}
-                {data.clientes.filter(c => c.nome.toLowerCase().includes(clienteSearch.toLowerCase())).length === 0 && (
+                {data.clientes.filter(c => normalizeSearch(c.nome).includes(normalizeSearch(clienteSearch))).length === 0 && (
                   <li className="px-4 py-2 text-sm text-gray-500 text-center">Nenhum cliente encontrado</li>
                 )}
               </ul>

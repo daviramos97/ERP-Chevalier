@@ -1,5 +1,10 @@
 import { createContext, useState, useEffect } from 'react';
 
+export const normalizeSearch = (str) => {
+  if (!str) return '';
+  return str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+};
+
 export const GlobalContext = createContext();
 
 export function GlobalProvider({ children }) {

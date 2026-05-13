@@ -1,5 +1,5 @@
 import { useContext, useState } from 'react';
-import { GlobalContext } from '../context/GlobalContext';
+import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Plus, Trash2, Tag, Search, User, ChevronRight, ArrowLeft } from 'lucide-react';
 
@@ -59,7 +59,7 @@ export function Descontos() {
   };
 
   const filteredClientes = data.clientes.filter(c =>
-    c.nome.toLowerCase().includes(clientSearch.toLowerCase())
+    normalizeSearch(c.nome).includes(normalizeSearch(clientSearch))
   ).sort((a, b) => a.nome.localeCompare(b.nome));
 
   const produtosJaCadastrados = clienteDescontos.map(d => d.produtoId);
