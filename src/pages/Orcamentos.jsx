@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus, CheckSquare } from 'lucide-react';
+import { Plus, MessageCircle, FileText, Trash2, Edit2, Search, UserPlus, CheckSquare, ArrowLeft, User, ShoppingCart } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -38,8 +38,21 @@ export function Orcamentos() {
 
   // Toast State
   const [toastMsg, setToastMsg] = useState('');
-  // Selection State
-  const [selectedIds, setSelectedIds] = useState([]);
+  
+  const [selectedOrcamentoId, setSelectedOrcamentoId] = useState(null);
+  const [orcamentoSearch, setOrcamentoSearch] = useState('');
+  const [displayedCount, setDisplayedCount] = useState(10);
+
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [orcamentoSearch]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setDisplayedCount(prev => prev + 10);
+    }
+  };
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -61,33 +74,7 @@ export function Orcamentos() {
     }
   };
 
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.length === data.orcamentos.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(data.orcamentos.map(o => o.id));
-    }
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedIds.length === 0) return;
-    setConfirmDialog({
-      isOpen: true,
-      title: 'Limpar Selecionados',
-      message: `Deseja excluir os ${selectedIds.length} orçamento(s) selecionado(s)? Esta ação não pode ser desfeita.`,
-      isDestructive: true,
-      onConfirm: () => {
-        selectedIds.forEach(id => deleteOrcamento(id));
-        setSelectedIds([]);
-        setConfirmDialog({ isOpen: false });
-        showToast(`${selectedIds.length} orçamento(s) excluído(s).`);
-      }
-    });
-  };
 
   const valorTotalOrcamento = itens.reduce((acc, item) => acc + item.subtotal, 0);
 
@@ -373,8 +360,17 @@ export function Orcamentos() {
     }
   };
 
+  const filteredOrcamentos = data.orcamentos.filter(orc => {
+    const cli = data.clientes.find(c => c.id === orc.clienteId);
+    const termo = normalizeSearch(orcamentoSearch);
+    return normalizeSearch(orc.id).includes(termo) || (cli && normalizeSearch(cli.nome).includes(termo));
+  }).sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+
+  const visibleOrcamentos = filteredOrcamentos.slice(0, displayedCount);
+  const selectedOrcamento = data.orcamentos.find(o => o.id === selectedOrcamentoId);
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[calc(100vh-4rem)] relative">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden relative">
       {/* Toast Notification */}
       {toastMsg && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-xl z-50 flex items-center gap-2 animate-bounce">
@@ -383,112 +379,211 @@ export function Orcamentos() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Orçamentos</h1>
-        <div className="flex items-center gap-3">
-          {selectedIds.length > 0 && (
-            <button
-              onClick={handleDeleteSelected}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-red-600/20"
+      {/* Painel Esquerdo: Lista de Orçamentos */}
+      <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedOrcamentoId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-6 border-b border-gray-100 bg-white">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-bold text-gray-800">Orçamentos</h1>
+            <button 
+              onClick={() => openModal()}
+              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+              title="Novo Orçamento"
             >
-              <Trash2 size={18} />
-              Limpar Selecionados ({selectedIds.length})
+              <Plus size={20} />
+            </button>
+          </div>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por ID ou cliente..."
+              value={orcamentoSearch}
+              onChange={(e) => setOrcamentoSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-2 space-y-1" onScroll={handleScroll}>
+          {visibleOrcamentos.map(orc => {
+            const cli = data.clientes.find(c => c.id === orc.clienteId);
+            return (
+              <button
+                key={orc.id}
+                onClick={() => setSelectedOrcamentoId(orc.id)}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                  selectedOrcamentoId === orc.id 
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
+                    : 'hover:bg-white text-gray-700 hover:shadow-sm border border-transparent hover:border-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-3 text-left w-full overflow-hidden">
+                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${selectedOrcamentoId === orc.id ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+                    #{orc.id}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-sm truncate">{cli?.nome || 'N/A'}</p>
+                    <div className="flex justify-between items-center mt-0.5">
+                      <p className={`text-[10px] uppercase tracking-wider truncate ${selectedOrcamentoId === orc.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                        {orc.data ? orc.data.split('-').reverse().join('/') : '-'}
+                      </p>
+                      <p className={`text-xs font-bold ${selectedOrcamentoId === orc.id ? 'text-white' : 'text-blue-600'}`}>
+                        {orc.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+          {visibleOrcamentos.length < filteredOrcamentos.length && (
+            <button
+              onClick={() => setDisplayedCount(prev => prev + 10)}
+              className="w-full py-3 mt-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+            >
+              Carregar mais...
             </button>
           )}
-          <button 
-            onClick={() => openModal()}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-blue-600/20"
-          >
-            <Plus size={20} />
-            Novo Orçamento
-          </button>
+          {filteredOrcamentos.length === 0 && (
+             <div className="text-center p-4 text-gray-500 text-sm">Nenhum orçamento encontrado.</div>
+          )}
         </div>
       </div>
 
-      {/* Tabela de Orçamentos */}
-      <div className="overflow-x-auto border border-gray-100 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="p-4 w-10">
-                <input
-                  type="checkbox"
-                  checked={data.orcamentos.length > 0 && selectedIds.length === data.orcamentos.length}
-                  onChange={toggleSelectAll}
-                  className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
-                />
-              </th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">ID</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Cliente</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Data</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Total</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.orcamentos.map((orc) => {
-              const cli = data.clientes.find(c => c.id === orc.clienteId);
-              const isSelected = selectedIds.includes(orc.id);
-              return (
-                <tr key={orc.id} className={`border-b border-gray-50 transition-colors ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50/50'}`}>
-                  <td className="p-4 w-10">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelect(orc.id)}
-                      className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
-                    />
-                  </td>
-                  <td className="p-4 text-gray-500 text-sm">#{orc.id}</td>
-                  <td className="p-4 font-medium text-gray-800">{cli?.nome || 'N/A'}</td>
-                  <td className="p-4 text-gray-600">
-                    {orc.data ? orc.data.split('-').reverse().join('/') : '-'}
-                  </td>
-                  <td className="p-4 font-semibold text-blue-600">
-                    {orc.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </td>
-                  <td className="p-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button 
-                        onClick={() => openModal(orc)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Editar Orçamento"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleWhatsApp(orc)}
-                        className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                        title="Copiar para WhatsApp"
-                      >
-                        <MessageCircle size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleGeneratePDF(orc)}
-                        className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                        title="Gerar PDF"
-                      >
-                        <FileText size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteOrcamento(orc.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir Orçamento"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+      {/* Painel Direito: Detalhes do Orçamento */}
+      <div className={`flex-1 flex flex-col bg-white ${!selectedOrcamentoId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedOrcamento ? (
+          <div className="flex flex-col h-full">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setSelectedOrcamentoId(null)}
+                  className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    Orçamento #{selectedOrcamento.id}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-widest">
+                    {selectedOrcamento.data ? selectedOrcamento.data.split('-').reverse().join('/') : '-'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => handleWhatsApp(selectedOrcamento)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Copiar para WhatsApp"
+                >
+                  <MessageCircle size={18} />
+                </button>
+                <button 
+                  onClick={() => handleGeneratePDF(selectedOrcamento)}
+                  className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                  title="Gerar PDF"
+                >
+                  <FileText size={18} />
+                </button>
+                <button
+                  onClick={() => openModal(selectedOrcamento)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Editar Orçamento"
+                >
+                  <Edit2 size={18} />
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteOrcamento(selectedOrcamento.id);
+                    setSelectedOrcamentoId(null);
+                  }}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Excluir Orçamento"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto bg-gray-50/30 space-y-6">
+              {/* Cliente Info */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <User size={14} /> Dados do Cliente
+                </h3>
+                {(() => {
+                  const cli = data.clientes.find(c => c.id === selectedOrcamento.clienteId);
+                  return (
+                    <div>
+                      <p className="font-bold text-gray-800 text-lg mb-1">{cli?.nome || 'N/A'}</p>
+                      <div className="text-sm text-gray-600 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {cli?.telefone && <p><span className="font-medium text-gray-500">Telefone:</span> {cli.telefone}</p>}
+                        {cli?.cidade && <p><span className="font-medium text-gray-500">Localidade:</span> {cli.cidade} {cli.bairro ? `- ${cli.bairro}` : ''}</p>}
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-            {data.orcamentos.length === 0 && (
-              <tr>
-                <td colSpan="6" className="p-8 text-center text-gray-500">Nenhum orçamento gerado.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  );
+                })()}
+              </div>
+
+              {/* Itens */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <ShoppingCart size={14} /> Itens do Orçamento
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 text-gray-600 border-y border-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 font-semibold">Produto</th>
+                        <th className="px-4 py-2 font-semibold text-center">Qtd</th>
+                        <th className="px-4 py-2 font-semibold text-right">Unitário</th>
+                        <th className="px-4 py-2 font-semibold text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrcamento.itens.map((item, idx) => (
+                        <tr key={idx} className="border-b border-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-800">{item.nome}</td>
+                          <td className="px-4 py-3 text-center text-gray-600 bg-gray-50/30">{item.quantidade}</td>
+                          <td className={`px-4 py-3 text-right text-gray-600 ${item.temDesconto ? 'font-bold text-blue-600' : ''}`}>
+                            {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-gray-700">
+                            {item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Totais */}
+              <div className="flex justify-end">
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 min-w-[200px]">
+                  <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-1 text-right">
+                    Total do Orçamento
+                  </p>
+                  <p className="text-2xl font-black text-blue-700 text-right">
+                    {selectedOrcamento.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <FileText size={32} className="text-gray-300" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Selecione um orçamento</h2>
+            <p className="text-gray-500 max-w-sm text-sm">
+              Escolha um orçamento na lista ao lado para visualizar os detalhes, itens e opções disponíveis.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Modal Novo/Editar Orçamento */}

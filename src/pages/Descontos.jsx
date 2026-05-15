@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Plus, Trash2, Tag, Search, User, ChevronRight, ArrowLeft } from 'lucide-react';
@@ -8,6 +8,18 @@ export function Descontos() {
 
   const [selectedClienteId, setSelectedClienteId] = useState(null);
   const [clientSearch, setClientSearch] = useState('');
+  const [displayedCount, setDisplayedCount] = useState(10);
+
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [clientSearch]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setDisplayedCount(prev => prev + 10);
+    }
+  };
   
   const [produtoId, setProdutoId] = useState('');
   const [preco, setPreco] = useState('');
@@ -62,10 +74,12 @@ export function Descontos() {
     normalizeSearch(c.nome).includes(normalizeSearch(clientSearch))
   ).sort((a, b) => a.nome.localeCompare(b.nome));
 
+  const visibleClientes = filteredClientes.slice(0, displayedCount);
+
   const produtosJaCadastrados = clienteDescontos.map(d => d.produtoId);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
       
       {/* Painel Esquerdo: Lista de Clientes */}
       <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedClienteId ? 'hidden md:flex' : 'flex'}`}>
@@ -83,8 +97,8 @@ export function Descontos() {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredClientes.map(c => {
+        <div className="flex-1 overflow-y-auto p-2 space-y-1" onScroll={handleScroll}>
+          {visibleClientes.map(c => {
             const hasDescontos = descontos.some(d => d.clienteId === c.id);
             const count = descontos.filter(d => d.clienteId === c.id).length;
             return (
@@ -117,6 +131,17 @@ export function Descontos() {
               </button>
             );
           })}
+          {visibleClientes.length < filteredClientes.length && (
+            <button
+              onClick={() => setDisplayedCount(prev => prev + 10)}
+              className="w-full py-3 mt-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+            >
+              Carregar mais...
+            </button>
+          )}
+          {filteredClientes.length === 0 && (
+             <div className="text-center p-4 text-gray-500 text-sm">Nenhum cliente encontrado.</div>
+          )}
         </div>
       </div>
 

@@ -18,6 +18,7 @@ export function Vendas() {
   const [editingVenda, setEditingVenda] = useState(null);
   const [selectedVendaId, setSelectedVendaId] = useState(null);
   const [vendaSearch, setVendaSearch] = useState('');
+  const [displayedCount, setDisplayedCount] = useState(10);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importSearchTerm, setImportSearchTerm] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
@@ -99,6 +100,17 @@ export function Vendas() {
     }
   }, [isModalOpen]);
 
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [vendaSearch]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setDisplayedCount(prev => prev + 10);
+    }
+  };
+
   // Gerar imagem JPG do pedido para envio à fábrica (sem comissão)
   const generateOrderImage = (venda) => {
     const cliente = data.clientes.find(c => c.id === venda.clienteId);
@@ -107,9 +119,9 @@ export function Vendas() {
 
     const PADDING = 40;
     const WIDTH = 680;
-    const ROW_H = 36;
-    const HEADER_H = 160;
-    const TABLE_HEADER_H = 38;
+    const ROW_H = 42;
+    const HEADER_H = 150;
+    const TABLE_HEADER_H = 42;
     const FOOTER_H = 70;
     const totalHeight = HEADER_H + TABLE_HEADER_H + (venda.itens.length * ROW_H) + FOOTER_H + PADDING;
 
@@ -125,43 +137,43 @@ export function Vendas() {
 
     // Barra de cabeçalho azul
     ctx.fillStyle = '#1e40af';
-    ctx.fillRect(0, 0, WIDTH, 80);
+    ctx.fillRect(0, 0, WIDTH, 70);
 
     // Logo / título
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 22px system-ui, Arial';
-    ctx.fillText('CHEVALIER', PADDING, 32);
+    ctx.fillText('CHEVALIER', PADDING, 28);
     ctx.font = '11px system-ui, Arial';
     ctx.fillStyle = '#bfdbfe';
-    ctx.fillText('PEDIDO DE FABRICAÇÃO', PADDING, 50);
+    ctx.fillText('PEDIDO DE FABRICAÇÃO', PADDING, 46);
 
     // Número do pedido
     ctx.font = 'bold 18px system-ui, Arial';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'right';
-    ctx.fillText(`Pedido #${venda.id}`, WIDTH - PADDING, 32);
+    ctx.fillText(`Pedido #${venda.id}`, WIDTH - PADDING, 28);
     ctx.font = '11px system-ui, Arial';
     ctx.fillStyle = '#bfdbfe';
-    ctx.fillText(dataFormatada, WIDTH - PADDING, 50);
+    ctx.fillText(dataFormatada, WIDTH - PADDING, 46);
     ctx.textAlign = 'left';
 
     // Borda inferior do cabeçalho
     ctx.fillStyle = '#3b82f6';
-    ctx.fillRect(0, 80, WIDTH, 4);
+    ctx.fillRect(0, 70, WIDTH, 4);
 
     // Bloco de cliente
     ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(PADDING, 96, WIDTH - PADDING * 2, 50);
+    ctx.fillRect(PADDING, 86, WIDTH - PADDING * 2, 50);
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
-    ctx.strokeRect(PADDING, 96, WIDTH - PADDING * 2, 50);
+    ctx.strokeRect(PADDING, 86, WIDTH - PADDING * 2, 50);
 
     ctx.fillStyle = '#6b7280';
-    ctx.font = 'bold 9px system-ui, Arial';
-    ctx.fillText('CLIENTE', PADDING + 14, 113);
+    ctx.font = 'bold 10px system-ui, Arial';
+    ctx.fillText('CLIENTE', PADDING + 14, 103);
     ctx.fillStyle = '#111827';
-    ctx.font = 'bold 15px system-ui, Arial';
-    ctx.fillText(nomeCliente, PADDING + 14, 132);
+    ctx.font = 'bold 16px system-ui, Arial';
+    ctx.fillText(nomeCliente, PADDING + 14, 122);
 
     // Cabeçalho da tabela
     const tableTop = HEADER_H;
@@ -172,16 +184,16 @@ export function Vendas() {
     const tableW = WIDTH - PADDING * 2;
     const headers = ['Produto', 'Qtd', 'Unitário', 'Subtotal'];
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 11px system-ui, Arial';
+    ctx.font = 'bold 13px system-ui, Arial';
     headers.forEach((h, i) => {
       const x = PADDING + tableW * cols[i] + 10;
       const align = i > 0 ? 'right' : 'left';
       if (align === 'right') {
         ctx.textAlign = 'right';
-        ctx.fillText(h, PADDING + tableW * cols[i + 1] - 10, tableTop + 24);
+        ctx.fillText(h, PADDING + tableW * cols[i + 1] - 10, tableTop + 26);
       } else {
         ctx.textAlign = 'left';
-        ctx.fillText(h, x, tableTop + 24);
+        ctx.fillText(h, x, tableTop + 26);
       }
     });
     ctx.textAlign = 'left';
@@ -201,19 +213,19 @@ export function Vendas() {
       ctx.stroke();
 
       ctx.fillStyle = '#111827';
-      ctx.font = '12px system-ui, Arial';
-      ctx.fillText(item.nome, PADDING + 10, y + 23);
+      ctx.font = '14px system-ui, Arial';
+      ctx.fillText(item.nome, PADDING + 10, y + 26);
 
       const qtd = item.quantidade.toString();
       const unit = item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
       const sub = item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
       ctx.textAlign = 'right';
-      ctx.fillText(qtd, PADDING + tableW * cols[2] - 10, y + 23);
-      ctx.fillText(unit, PADDING + tableW * cols[3] - 10, y + 23);
-      ctx.font = 'bold 12px system-ui, Arial';
+      ctx.fillText(qtd, PADDING + tableW * cols[2] - 10, y + 26);
+      ctx.fillText(unit, PADDING + tableW * cols[3] - 10, y + 26);
+      ctx.font = 'bold 14px system-ui, Arial';
       ctx.fillStyle = '#1d4ed8';
-      ctx.fillText(sub, PADDING + tableW - 10, y + 23);
+      ctx.fillText(sub, PADDING + tableW - 10, y + 26);
       ctx.textAlign = 'left';
     });
 
@@ -226,16 +238,16 @@ export function Vendas() {
     // Footer: total
     const footerY = tableBottom + 16;
     ctx.fillStyle = '#1e40af';
-    ctx.fillRect(PADDING + tableW - 220, footerY, 220, 42);
+    ctx.fillRect(PADDING + tableW - 220, footerY, 220, 46);
     ctx.fillStyle = '#bfdbfe';
-    ctx.font = 'bold 10px system-ui, Arial';
+    ctx.font = 'bold 11px system-ui, Arial';
     ctx.textAlign = 'right';
-    ctx.fillText('TOTAL DO PEDIDO', PADDING + tableW - 14, footerY + 15);
+    ctx.fillText('TOTAL DO PEDIDO', PADDING + tableW - 14, footerY + 17);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px system-ui, Arial';
+    ctx.font = 'bold 18px system-ui, Arial';
     ctx.fillText(
       venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-      PADDING + tableW - 14, footerY + 34
+      PADDING + tableW - 14, footerY + 36
     );
     ctx.textAlign = 'left';
 
@@ -398,10 +410,12 @@ export function Vendas() {
     return normalizeSearch(v.id).includes(termo) || (cli && normalizeSearch(cli.nome).includes(termo));
   }).sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
 
+  const visibleVendas = filteredVendas.slice(0, displayedCount);
+
   const selectedVenda = data.vendas.find(v => v.id === selectedVendaId);
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden">
       
       {/* Painel Esquerdo: Lista de Vendas */}
       <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedVendaId ? 'hidden md:flex' : 'flex'}`}>
@@ -428,8 +442,8 @@ export function Vendas() {
           </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {filteredVendas.map(venda => {
+        <div className="flex-1 overflow-y-auto p-2 space-y-1" onScroll={handleScroll}>
+          {visibleVendas.map(venda => {
             const cli = data.clientes.find(c => c.id === venda.clienteId);
             return (
               <button
@@ -460,6 +474,14 @@ export function Vendas() {
               </button>
             );
           })}
+          {visibleVendas.length < filteredVendas.length && (
+            <button
+              onClick={() => setDisplayedCount(prev => prev + 10)}
+              className="w-full py-3 mt-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+            >
+              Carregar mais...
+            </button>
+          )}
           {filteredVendas.length === 0 && (
              <div className="text-center p-4 text-gray-500 text-sm">Nenhuma venda encontrada.</div>
           )}

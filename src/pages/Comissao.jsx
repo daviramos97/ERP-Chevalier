@@ -1,4 +1,4 @@
-import { useContext, useState, useMemo } from 'react';
+import { useContext, useState, useMemo, useEffect } from 'react';
 import { GlobalContext } from '../context/GlobalContext';
 import { FileText, Calendar, DollarSign, CheckCircle, AlertCircle } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -12,6 +12,7 @@ export function Comissao() {
   const currentMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   const [mesFiltro, setMesFiltro] = useState(currentMonth);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false });
+  const [displayedCount, setDisplayedCount] = useState(10);
 
   // Cálculos baseados no mês
   const { vendasMes, totalFaturado, totalComissao, isPago, dataPagamentoPrevista } = useMemo(() => {
@@ -44,6 +45,20 @@ export function Comissao() {
     if (vendasMes.length === 0) return;
     toggleComissaoPaga(mesFiltro);
   };
+
+  // Scroll Infinito
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [mesFiltro]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setDisplayedCount(prev => prev + 10);
+    }
+  };
+
+  const visibleVendas = vendasMes.slice(0, displayedCount);
 
   const gerarRelatorioAuditoria = () => {
     if (vendasMes.length === 0) {
@@ -221,10 +236,10 @@ export function Comissao() {
         </button>
       </div>
 
-      <div className="overflow-x-auto border border-gray-100 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
+      <div className="overflow-y-auto max-h-[500px] border border-gray-100 rounded-xl custom-scrollbar" onScroll={handleScroll}>
+        <table className="w-full text-left border-collapse relative">
+          <thead className="sticky top-0 bg-gray-50 z-10 shadow-sm">
+            <tr className="border-b border-gray-100">
               <th className="py-3 px-4 font-semibold text-gray-600 text-sm">Data</th>
               <th className="py-3 px-4 font-semibold text-gray-600 text-sm">Venda</th>
               <th className="py-3 px-4 font-semibold text-gray-600 text-sm">Cliente</th>
@@ -234,7 +249,7 @@ export function Comissao() {
             </tr>
           </thead>
           <tbody>
-            {vendasMes.map((v) => {
+            {visibleVendas.map((v) => {
               const cli = data.clientes.find(c => c.id === v.clienteId);
               return (
                 <tr key={v.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
@@ -253,6 +268,18 @@ export function Comissao() {
                 </tr>
               );
             })}
+            {visibleVendas.length < vendasMes.length && (
+              <tr>
+                <td colSpan="6" className="p-4">
+                  <button
+                    onClick={() => setDisplayedCount(prev => prev + 10)}
+                    className="w-full py-3 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+                  >
+                    Carregar mais...
+                  </button>
+                </td>
+              </tr>
+            )}
             {vendasMes.length === 0 && (
               <tr>
                 <td colSpan="6" className="p-8 text-center text-gray-500">Nenhuma venda registrada no mês selecionado.</td>

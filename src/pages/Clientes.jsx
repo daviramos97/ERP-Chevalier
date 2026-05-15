@@ -1,9 +1,8 @@
-import { useContext, useState } from 'react';
-import { GlobalContext } from '../context/GlobalContext';
+import { useContext, useState, useEffect } from 'react';
+import { GlobalContext, normalizeSearch } from '../context/GlobalContext';
 import { Modal } from '../components/ui/Modal';
-import { Drawer } from '../components/ui/Drawer';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { Plus, Edit2, Trash2, Ban, CheckCircle2, ChevronLeft, ChevronRight, History, ShoppingCart } from 'lucide-react';
+import { Plus, Edit2, Trash2, Ban, CheckCircle2, ChevronLeft, ChevronRight, History, ShoppingCart, Search, ArrowLeft, User } from 'lucide-react';
 
 export function Clientes() {
   const { data, addCliente, updateCliente, deleteCliente, toggleStatusCliente } = useContext(GlobalContext);
@@ -17,7 +16,21 @@ export function Clientes() {
   
   // Selected Client State
   const [editingCliente, setEditingCliente] = useState(null);
-  const [selectedClienteHistory, setSelectedClienteHistory] = useState(null);
+  const [selectedClienteId, setSelectedClienteId] = useState(null);
+  
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [displayedCount, setDisplayedCount] = useState(10);
+
+  useEffect(() => {
+    setDisplayedCount(10);
+  }, [clienteSearch]);
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) {
+      setDisplayedCount(prev => prev + 10);
+    }
+  };
   
   // Form State
   const STATUS_CONFIG = {
@@ -40,12 +53,7 @@ export function Clientes() {
   };
   const [formData, setFormData] = useState(initialForm);
   
-  // Paginação
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-  const totalPages = Math.ceil(data.clientes.length / itemsPerPage);
-  const paginatedClientes = data.clientes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  
+
   // Mascaramento
   const maskCnpjCpf = (value) => {
     const v = value.replace(/\D/g, "");
@@ -154,147 +162,270 @@ export function Clientes() {
   };
 
   const openHistory = (cliente) => {
-    setSelectedClienteHistory(cliente);
-    setIsDrawerOpen(true);
+    setSelectedClienteId(cliente.id);
   };
 
+  const filteredClientes = data.clientes.filter(c =>
+    normalizeSearch(c.nome).includes(normalizeSearch(clienteSearch)) ||
+    normalizeSearch(c.cidade || '').includes(normalizeSearch(clienteSearch))
+  ).sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const visibleClientes = filteredClientes.slice(0, displayedCount);
+  const selectedCliente = data.clientes.find(c => c.id === selectedClienteId);
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 min-h-[calc(100vh-4rem)]">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-800">Clientes</h1>
-        <button 
-          onClick={() => openModal()}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-md shadow-blue-600/20"
-        >
-          <Plus size={20} />
-          Novo Cliente
-        </button>
-      </div>
-
-      <div className="overflow-x-auto border border-gray-100 rounded-xl">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="p-4 font-semibold text-gray-600 text-sm">Nome / Contato</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Localização</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm">Logística</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Status</th>
-              <th className="p-4 font-semibold text-gray-600 text-sm text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedClientes.map((c) => (
-              <tr 
-                key={c.id} 
-                onClick={() => openHistory(c)}
-                className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer group"
-              >
-                {/* Col 1: Nome + Contato */}
-                <td className="p-4">
-                  <div className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">{c.nome}</div>
-                  <div className="text-xs text-gray-600 mt-0.5">
-                    {c.contato && <span className="font-bold text-blue-500">{c.contato}: </span>}
-                    {c.telefone || '-'}
-                  </div>
-                  {c.cnpj && <div className="text-xs text-gray-400 mt-0.5">{c.cnpj}</div>}
-                </td>
-                {/* Col 2: Localização */}
-                <td className="p-4">
-                  <div className="text-sm text-gray-700 font-medium">{c.cidade || '-'}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{c.bairro || '-'}</div>
-                </td>
-                {/* Col 3: Logística */}
-                <td className="p-4">
-                  <div className="flex flex-col gap-1">
-                    {c.frequenciaCompra && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md w-fit">
-                        🔄 {c.frequenciaCompra}
-                      </span>
-                    )}
-                    {c.volumeMedioPedido && (
-                      <span className="text-xs text-gray-600">
-                        <span className="font-bold">{c.volumeMedioPedido}</span> cx/pedido
-                      </span>
-                    )}
-                    {c.diaEntrega && (
-                      <span className="text-xs text-gray-500">🚚 {c.diaEntrega}</span>
-                    )}
-                    {!c.frequenciaCompra && !c.volumeMedioPedido && !c.diaEntrega && (
-                      <span className="text-xs text-gray-400">-</span>
-                    )}
-                  </div>
-                </td>
-                {/* Col 4: Status */}
-                <td className="p-4 text-center">
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    STATUS_CONFIG[c.statusCrm]?.color || 'bg-gray-100 text-gray-500'
-                  }`}>
-                    {c.statusCrm || 'Lead'}
-                  </span>
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <button 
-                      onClick={(e) => handleActionClick(e, 'edit', c)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button 
-                      onClick={(e) => handleActionClick(e, 'toggle', c)}
-                      className={`p-1.5 rounded-lg transition-colors ${
-                        c.status === 'Ativo' 
-                          ? 'text-orange-600 hover:bg-orange-50' 
-                          : 'text-green-600 hover:bg-green-50'
-                      }`}
-                      title={c.status === 'Ativo' ? 'Inativar' : 'Ativar'}
-                    >
-                      {c.status === 'Ativo' ? <Ban size={18} /> : <CheckCircle2 size={18} />}
-                    </button>
-                    <button 
-                      onClick={(e) => handleActionClick(e, 'delete', c)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {paginatedClientes.length === 0 && (
-              <tr>
-                <td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cliente cadastrado.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-6">
-          <span className="text-sm text-gray-500">
-            Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, data.clientes.length)} de {data.clientes.length} clientes
-          </span>
-          <div className="flex gap-2">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-4rem)] flex flex-col md:flex-row overflow-hidden relative">
+      
+      {/* Painel Esquerdo: Lista de Clientes */}
+      <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col bg-gray-50/30 ${selectedClienteId ? 'hidden md:flex' : 'flex'}`}>
+        <div className="p-6 border-b border-gray-100 bg-white">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-xl font-bold text-gray-800">Clientes</h1>
             <button 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => openModal()}
+              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-sm"
+              title="Novo Cliente"
             >
-              <ChevronLeft size={20} />
-            </button>
-            <button 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={20} />
+              <Plus size={20} />
             </button>
           </div>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Buscar por nome ou cidade..."
+              value={clienteSearch}
+              onChange={(e) => setClienteSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 pl-10 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none bg-white text-sm"
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          </div>
         </div>
-      )}
+        
+        <div className="flex-1 overflow-y-auto p-2 space-y-1" onScroll={handleScroll}>
+          {visibleClientes.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedClienteId(c.id)}
+              className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
+                selectedClienteId === c.id 
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' 
+                  : 'hover:bg-white text-gray-700 hover:shadow-sm border border-transparent hover:border-gray-100'
+              }`}
+            >
+              <div className="flex items-center gap-3 text-left w-full overflow-hidden">
+                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${selectedClienteId === c.id ? 'bg-white/20' : 'bg-gray-200 text-gray-500'}`}>
+                  {c.nome.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-sm truncate">{c.nome}</p>
+                  <div className="flex justify-between items-center mt-0.5">
+                    <p className={`text-[10px] uppercase tracking-wider truncate ${selectedClienteId === c.id ? 'text-blue-100' : 'text-gray-400'}`}>
+                      {c.cidade || 'Sem cidade'}
+                    </p>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                      selectedClienteId === c.id ? 'bg-white/20 text-white' : STATUS_CONFIG[c.statusCrm]?.color || 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {c.statusCrm || 'Lead'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+          {visibleClientes.length < filteredClientes.length && (
+            <button
+              onClick={() => setDisplayedCount(prev => prev + 10)}
+              className="w-full py-3 mt-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+            >
+              Carregar mais...
+            </button>
+          )}
+          {filteredClientes.length === 0 && (
+             <div className="text-center p-4 text-gray-500 text-sm">Nenhum cliente encontrado.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Painel Direito: Detalhes do Cliente */}
+      <div className={`flex-1 flex flex-col bg-white ${!selectedClienteId ? 'hidden md:flex' : 'flex'}`}>
+        {selectedCliente ? (() => {
+          const clientSales = data.vendas
+            .filter(v => v.clienteId === selectedCliente.id)
+            .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
+          const totalGasto = clientSales.reduce((acc, v) => acc + (v.valorTotal || 0), 0);
+
+          return (
+            <div className="flex flex-col h-full">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setSelectedClienteId(null)}
+                    className="md:hidden p-2 hover:bg-gray-100 rounded-full text-gray-500"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      {selectedCliente.nome}
+                    </h2>
+                    <div className="flex gap-2 mt-1">
+                      {selectedCliente.contato && (
+                        <span className="text-xs font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md">👤 {selectedCliente.contato}</span>
+                      )}
+                      {selectedCliente.telefone && (
+                        <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-md">📞 {selectedCliente.telefone}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={(e) => handleActionClick(e, 'edit', selectedCliente)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="Editar Cliente"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button 
+                    onClick={(e) => handleActionClick(e, 'toggle', selectedCliente)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      selectedCliente.status === 'Ativo' 
+                        ? 'text-orange-600 hover:bg-orange-50' 
+                        : 'text-green-600 hover:bg-green-50'
+                    }`}
+                    title={selectedCliente.status === 'Ativo' ? 'Inativar Cliente' : 'Ativar Cliente'}
+                  >
+                    {selectedCliente.status === 'Ativo' ? <Ban size={18} /> : <CheckCircle2 size={18} />}
+                  </button>
+                  <button 
+                    onClick={(e) => handleActionClick(e, 'delete', selectedCliente)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Excluir Cliente"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 flex-1 overflow-y-auto bg-gray-50/30 space-y-6">
+                
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total de Pedidos</p>
+                    <p className="text-xl font-black text-gray-800 mt-1">{clientSales.length}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Gasto</p>
+                    <p className="text-xl font-black text-blue-600 mt-1">{totalGasto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                  </div>
+                </div>
+
+                {/* Logistica */}
+                {(selectedCliente.frequenciaCompra || selectedCliente.volumeMedioPedido || selectedCliente.diaEntrega) && (
+                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      Informações de Logística
+                    </h3>
+                    <div className="grid grid-cols-3 gap-3">
+                      {selectedCliente.frequenciaCompra && (
+                        <div className="bg-indigo-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Frequência</p>
+                          <p className="text-sm font-bold text-indigo-700 mt-0.5">{selectedCliente.frequenciaCompra}</p>
+                        </div>
+                      )}
+                      {selectedCliente.volumeMedioPedido && (
+                        <div className="bg-gray-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Volume Médio</p>
+                          <p className="text-sm font-bold text-gray-700 mt-0.5">{selectedCliente.volumeMedioPedido} cx</p>
+                        </div>
+                      )}
+                      {selectedCliente.diaEntrega && (
+                        <div className="bg-emerald-50 p-3 rounded-xl text-center">
+                          <p className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Entrega</p>
+                          <p className="text-sm font-bold text-emerald-700 mt-0.5">{selectedCliente.diaEntrega.replace('-feira', '')}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Endereço */}
+                {selectedCliente.endereco && (
+                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                    <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                      <History size={12} /> Endereço
+                    </h3>
+                    <p className="text-sm text-blue-800 font-medium">
+                      {selectedCliente.endereco}
+                      {selectedCliente.bairro ? ` - ${selectedCliente.bairro}` : ''}
+                      {selectedCliente.cidade ? ` - ${selectedCliente.cidade}` : ''}
+                    </p>
+                  </div>
+                )}
+
+                {/* Histórico */}
+                <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                  <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+                    <ShoppingCart size={16} className="text-gray-400" />
+                    Linha do Tempo de Compras
+                  </h4>
+                  
+                  {clientSales.length > 0 ? (
+                    <div className="relative border-l-2 border-gray-100 ml-3 pl-6 space-y-5 pb-4">
+                      {clientSales.map((venda) => (
+                        <div key={venda.id} className="relative">
+                          <div className="absolute -left-[31px] bg-white border-2 border-blue-500 w-4 h-4 rounded-full mt-1 shadow-sm"></div>
+                          
+                          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <span className="text-[10px] font-bold text-blue-600 uppercase">Venda #{venda.id}</span>
+                                <p className="text-xs text-gray-500 font-medium">
+                                  {new Date(venda.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                                </p>
+                              </div>
+                              <span className="font-bold text-gray-900 text-sm">
+                                {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </span>
+                            </div>
+
+                            <div className="space-y-1.5 pt-2 border-t border-gray-50">
+                              {venda.itens.map((item, idx) => (
+                                <div key={idx} className="flex justify-between text-[11px]">
+                                  <span className="text-gray-600"><span className="font-bold text-gray-400">{item.quantidade}x</span> {item.nome}</span>
+                                  <span className="text-gray-400">{item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-32 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                      <History size={32} className="mb-2 opacity-20" />
+                      <p className="text-sm">Nenhuma compra registrada.</p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          );
+        })() : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gray-50/20">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <User size={32} className="text-gray-300" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Selecione um cliente</h2>
+            <p className="text-gray-500 max-w-sm text-sm">
+              Escolha um cliente na lista ao lado para visualizar os detalhes e o histórico de compras.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Modal de Cadastro/Edição */}
       <Modal 
@@ -473,133 +604,6 @@ export function Clientes() {
           </div>
         </form>
       </Modal>
-
-      {/* Drawer Histórico de Compras */}
-      <Drawer 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)}
-        title="Ficha do Cliente"
-      >
-        {selectedClienteHistory && (() => {
-          const clientSales = data.vendas
-            .filter(v => v.clienteId === selectedClienteHistory.id)
-            .sort((a, b) => new Date(b.dataHora) - new Date(a.dataHora));
-          
-          const totalGasto = clientSales.reduce((acc, v) => acc + (v.valorTotal || 0), 0);
-
-          return (
-            <div className="h-full flex flex-col">
-              {/* Cabeçalho com Resumo */}
-              <div className="mb-6 pb-6 border-b border-gray-100">
-                <h3 className="font-bold text-xl text-gray-800">{selectedClienteHistory.nome}</h3>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-md ${ STATUS_CONFIG[selectedClienteHistory.statusCrm]?.color || 'bg-gray-100 text-gray-500' }`}>
-                    {selectedClienteHistory.statusCrm || 'Lead'}
-                  </span>
-                  {selectedClienteHistory.contato && (
-                    <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded-md">👤 {selectedClienteHistory.contato}</span>
-                  )}
-                  {selectedClienteHistory.telefone && (
-                    <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-md">📞 {selectedClienteHistory.telefone}</span>
-                  )}
-                </div>
-
-                {/* Info de Logística */}
-                {(selectedClienteHistory.frequenciaCompra || selectedClienteHistory.volumeMedioPedido || selectedClienteHistory.diaEntrega) && (
-                  <div className="mt-4 grid grid-cols-3 gap-2">
-                    {selectedClienteHistory.frequenciaCompra && (
-                      <div className="bg-indigo-50 p-2.5 rounded-xl text-center">
-                        <p className="text-[9px] uppercase font-bold text-indigo-400 tracking-wider">Freq.</p>
-                        <p className="text-xs font-bold text-indigo-700 mt-0.5">{selectedClienteHistory.frequenciaCompra}</p>
-                      </div>
-                    )}
-                    {selectedClienteHistory.volumeMedioPedido && (
-                      <div className="bg-gray-50 p-2.5 rounded-xl text-center">
-                        <p className="text-[9px] uppercase font-bold text-gray-400 tracking-wider">Vol. Médio</p>
-                        <p className="text-xs font-bold text-gray-700 mt-0.5">{selectedClienteHistory.volumeMedioPedido} cx</p>
-                      </div>
-                    )}
-                    {selectedClienteHistory.diaEntrega && (
-                      <div className="bg-emerald-50 p-2.5 rounded-xl text-center">
-                        <p className="text-[9px] uppercase font-bold text-emerald-400 tracking-wider">Entrega</p>
-                        <p className="text-xs font-bold text-emerald-700 mt-0.5">{selectedClienteHistory.diaEntrega.replace('-feira', '')}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Stats Rápidas */}
-                <div className="grid grid-cols-2 gap-3 mt-6">
-                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total de Pedidos</p>
-                    <p className="text-lg font-black text-gray-800">{clientSales.length}</p>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-                    <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Total Gasto</p>
-                    <p className="text-lg font-black text-blue-600">{totalGasto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                  </div>
-                </div>
-
-                {selectedClienteHistory.endereco && (
-                  <div className="mt-4 p-3 bg-blue-50/30 rounded-xl border border-blue-50 flex items-start gap-2">
-                    <div className="text-blue-500 mt-0.5">
-                      <History size={14} />
-                    </div>
-                    <p className="text-xs text-blue-800 leading-relaxed">
-                      <span className="font-bold">Endereço:</span> {selectedClienteHistory.endereco}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex-1 overflow-y-auto pr-2 -mr-2 custom-scrollbar">
-                <h4 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <ShoppingCart size={16} className="text-gray-400" />
-                  Linha do Tempo de Compras
-                </h4>
-                
-                {clientSales.length > 0 ? (
-                  <div className="relative border-l-2 border-gray-100 ml-3 pl-6 space-y-6 pb-10">
-                    {clientSales.map((venda) => (
-                      <div key={venda.id} className="relative">
-                        <div className="absolute -left-[31px] bg-white border-2 border-blue-500 w-4 h-4 rounded-full mt-1 shadow-sm"></div>
-                        
-                        <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <span className="text-[10px] font-bold text-blue-600 uppercase">Venda #{venda.id}</span>
-                              <p className="text-xs text-gray-500 font-medium">
-                                {new Date(venda.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                              </p>
-                            </div>
-                            <span className="font-bold text-gray-900 text-sm">
-                              {venda.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </span>
-                          </div>
-
-                          <div className="space-y-1.5 pt-2 border-t border-gray-50">
-                            {venda.itens.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-[11px]">
-                                <span className="text-gray-600"><span className="font-bold text-gray-400">{item.quantidade}x</span> {item.nome}</span>
-                                <span className="text-gray-400">{item.subtotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-40 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                    <History size={40} className="mb-3 opacity-20" />
-                    <p className="text-sm">Nenhuma compra registrada.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-      </Drawer>
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
